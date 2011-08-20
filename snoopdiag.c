@@ -51,10 +51,10 @@
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
-#include <sys/dlpi.h>
 #include <arpa/inet.h>
 
 #define	SNOOP_V2          2
+#define DL_ETHER        0x4     /* Ethernet Bus */
 
 #define LIST  0x1	     /* connection list output */
 #define VIEW  0x1<<1	     /* view output */
@@ -669,9 +669,9 @@ read_packet()
     struct     ip     *ip;
     struct     tcphdr *tcphdr;
     struct     udphdr *udphdr;
-    uint_t     iplen; /* calcurated ip length including ip header and payload */
+    uint32_t     iplen; /* calcurated ip length including ip header and payload */
     struct     plist *plist_current; /* 処理用の packet list 構造体 */
-    uchar_t    *p;
+    u_int8_t    *p;
 
     conn_current = malloc(sizeof(connection_t));
     conn_head = conn_current;
@@ -697,7 +697,7 @@ read_packet()
             /* TCP の packet だけ読む */
             if( ip->ip_p == IPPROTO_TCP){
                 /* tcp ヘッダのアドレスを計算。IP ヘッダのアドレスに ip_hl x 4 byte を足す */ 	
-                tcphdr = (struct tcphdr *)((uchar_t *)ip + ((ip->ip_hl)<<2));
+                tcphdr = (struct tcphdr *)((u_int8_t *)ip + ((ip->ip_hl)<<2));
                 if(optflag & VERBOSE){ /* 冗長出力用 */ 
                     printf("==========================================\n");
                     printf("Packet:%d, Len:%d \n",plist_current->packet_number, plist_current->packet_len);
@@ -714,7 +714,7 @@ read_packet()
                     printf("ack         : %u\n", ntohl(tcphdr->th_ack));                    
                     printf("win         : %hu\n", ntohs(tcphdr->th_win));
 
-                    p = (uchar_t *)ip;
+                    p = (u_int8_t *)ip;
                     printf(" ");                    
                     for(j = 0 ; j < iplen ; j++){
                         printf("%02x", p[j]);
@@ -990,7 +990,7 @@ view_conn()
                     tcphdrlen = streams->tcphdr->th_off <<2;
                     
                     tcpopt_head = tcpopt = (char *)streams->tcphdr + 20 ; 
-                    while(*tcpopt != NULL && (tcpopt - tcpopt_head) < tcphdrlen - 20){
+                    while(*tcpopt != 0 && (tcpopt - tcpopt_head) < tcphdrlen - 20){
                         switch(*tcpopt){
                             case 1: /* NOP。次のoption へ*/
                                 tcpopt++; 
