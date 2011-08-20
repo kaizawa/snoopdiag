@@ -22,7 +22,7 @@
 #include <net/if.h>
 #include <netinet/if_ether.h>
 #include <netinet/in_systm.h>
-//#include <netinet/ip.h>
+#include <netinet/ip.h>
 //#include <netinet/tcp.h>
 #include <sys/dlpi.h>
 
@@ -88,23 +88,23 @@ struct  etherhdr {
 /*
  * IP ヘッダー
  */ 
-struct ip {
-    uchar_t ip_hl:4,                /* header length */
-        ip_v:4;                 /* version */
-    uchar_t ip_tos;                 /* type of service */
-    short   ip_len;                 /* total length */
-    ushort_t ip_id;                 /* identification */
-    short   ip_off;                 /* fragment offset field */
-#define IP_DF 0x4000                    /* dont fragment flag */
-#define IP_MF 0x2000                    /* more fragments flag */
-    uchar_t ip_ttl;                 /* time to live */
-    uchar_t ip_p;                   /* protocol */
-    ushort_t ip_sum;                /* checksum */
-    /* 本来 IP address は以下の宣言で良さそうだが、2byte ずれてしまう・・*/
-    struct  in_addr ip_src, ip_dst;    /* source and dest address */
-    //uchar_t ip_src[4];
-    //uchar_t ip_dst[4];
-};
+//struct ip {
+//    uchar_t ip_hl:4,                /* header length */
+//        ip_v:4;                 /* version */
+//    uchar_t ip_tos;                 /* type of service */
+//    short   ip_len;                 /* total length */
+//    ushort_t ip_id;                 /* identification */
+//    short   ip_off;                 /* fragment offset field */
+//#define IP_DF 0x4000                    /* dont fragment flag */
+//#define IP_MF 0x2000                    /* more fragments flag */
+//    uchar_t ip_ttl;                 /* time to live */
+//    uchar_t ip_p;                   /* protocol */
+//    ushort_t ip_sum;                /* checksum */
+//    /* 本来 IP address は以下の宣言で良さそうだが、2byte ずれてしまう・・*/
+//    struct  in_addr ip_src, ip_dst;    /* source and dest address */
+//    //uchar_t ip_src[4];
+//    //uchar_t ip_dst[4];
+//};
 
 /*
  * TCP ヘッダー
@@ -224,7 +224,7 @@ struct snoop_pheader {
 }; 
 
 /*
- * 各 packet 処理用の配列
+ * 各 packet 処理用の構造体
  */
 struct plist {
 	int			packet_number;
@@ -235,7 +235,6 @@ struct plist {
 	char			*cap_datap;    /* 実 packet へのポインタ*/
 };
 struct plist *plist_head;                  /* packet list 構造体の先頭へのポインタ */
-struct plist *plist_current, *plist_write; /* 処理用の packet list 構造体 */
 
 int count=0; /* 総 packet 数 */
 int bufflen;
@@ -331,6 +330,7 @@ int
 get_plist(){
 	int i;
         struct snoop_pheader *php;
+        struct plist *plist_current, *plist_write; /* 処理用の packet list 構造体 */        
         
 	printf("malloc size(for packet list): %d\n",sizeof(struct plist)*count);
 
@@ -378,12 +378,11 @@ check_tcp_header(struct ip *ip, struct tcphdr *tcphdr, struct plist *plist)
          */
         if (ntohs(ip->ip_off) & (8191)){
             if (
-                ntohl(ip->ip_src.s_addr) == conn->addr0.s_addr &&
-                ntohl(ip->ip_dst.s_addr) == conn->addr1.s_addr ||
-                ntohl(ip->ip_src.s_addr) == conn->addr1.s_addr &&
-                ntohl(ip->ip_dst.s_addr) == conn->addr0.s_addr
+                ip->ip_src.s_addr == conn->addr0.s_addr &&
+                ip->ip_dst.s_addr == conn->addr1.s_addr ||
+                ip->ip_src.s_addr == conn->addr1.s_addr &&
+                ip->ip_dst.s_addr == conn->addr0.s_addr
                 ){
-
                 for (streams = conn->stream ; streams != NULL ; streams = streams->stream_next){
                     /*
                      * 同じ IPID をもつ packet を探す
@@ -398,10 +397,12 @@ check_tcp_header(struct ip *ip, struct tcphdr *tcphdr, struct plist *plist)
                 }
             }
         }
-        
-        
-        if (ntohl(ip->ip_src.s_addr) != conn->addr0.s_addr && (ntohs(tcphdr->th_sport) == conn->port0) ){
-            if  ( ntohl(ip->ip_dst.s_addr) != conn->addr1.s_addr && (ntohs(tcphdr->th_dport) == conn->port1) ){
+
+        printf("ip->ip_src.s_addr=%X, conn->addr0.s_addr=%X\n", ip->ip_src.s_addr, conn->addr0.s_addr); //here
+        printf("ip->ip_dst.s_addr=%X, conn->addr1.s_addr=%X\n", ip->ip_dst.s_addr, conn->addr1.s_addr); //here        
+         
+        if (ip->ip_src.s_addr != conn->addr0.s_addr && (ntohs(tcphdr->th_sport) == conn->port0) ){
+            if  ( ip->ip_dst.s_addr != conn->addr1.s_addr && (ntohs(tcphdr->th_dport) == conn->port1) ){
                 streams = malloc(sizeof(struct stream_t)); 
                 conn->stream_last->stream_next = streams;
                 conn->stream_last = streams;
@@ -413,8 +414,8 @@ check_tcp_header(struct ip *ip, struct tcphdr *tcphdr, struct plist *plist)
                 conn->conn_count++;
                 return(0);
             }
-        } else if (ntohl(ip->ip_src.s_addr) != conn->addr1.s_addr && (ntohs(tcphdr->th_sport) == conn->port1) ){
-            if  (ntohl(ip->ip_dst.s_addr) != conn->addr0.s_addr && (ntohs(tcphdr->th_dport) == conn->port0) ){
+        } else if (ip->ip_src.s_addr != conn->addr1.s_addr && (ntohs(tcphdr->th_sport) == conn->port1) ){
+            if  (ip->ip_dst.s_addr != conn->addr0.s_addr && (ntohs(tcphdr->th_dport) == conn->port0) ){
                 streams = malloc(sizeof(struct stream_t)); 
                 conn->stream_last->stream_next = streams;
                 conn->stream_last = streams;
@@ -429,7 +430,6 @@ check_tcp_header(struct ip *ip, struct tcphdr *tcphdr, struct plist *plist)
             }
         } 
 
-
         if(conn->conn_next == NULL)
             break;
         conn = conn->conn_next;
@@ -438,8 +438,8 @@ check_tcp_header(struct ip *ip, struct tcphdr *tcphdr, struct plist *plist)
     /* リストに既存の connection が無いので新規にリストに追加 */
     conn_write = malloc(sizeof(struct connection_t));
     conn_current->conn_next = conn_write;
-    conn_write->addr0.s_addr = ntohl(ip->ip_src.s_addr);
-    conn_write->addr1.s_addr = ntohl(ip->ip_dst.s_addr);
+    conn_write->addr0.s_addr = ip->ip_src.s_addr;
+    conn_write->addr1.s_addr = ip->ip_dst.s_addr;
     conn_write->conn_head = conn_head;
     conn_write->port0 = ntohs(tcphdr->th_sport);
     conn_write->port1 = ntohs(tcphdr->th_dport);
@@ -477,10 +477,10 @@ int check_udp_header(struct ip *ip, struct udphdr *udphdr, struct plist *plist){
         if (ntohs(ip->ip_off) & (8191)){
             
             if (
-                ntohl(ip->ip_src.s_addr) == pair->addr0.s_addr &&
-                ntohl(ip->ip_dst.s_addr) == pair->addr1.s_addr ||
-                ntohl(ip->ip_src.s_addr) == pair->addr1.s_addr &&
-                ntohl(ip->ip_dst.s_addr) == pair->addr0.s_addr
+                ip->ip_src.s_addr == pair->addr0.s_addr &&
+                ip->ip_dst.s_addr == pair->addr1.s_addr ||
+                ip->ip_src.s_addr == pair->addr1.s_addr &&
+                ip->ip_dst.s_addr == pair->addr0.s_addr
                 ){
 
                 for (udp_streams = pair->udp_stream ; udp_streams != NULL ; udp_streams = udp_streams->udp_stream_next){
@@ -494,8 +494,8 @@ int check_udp_header(struct ip *ip, struct udphdr *udphdr, struct plist *plist){
             }
         }
         
-        if ( ntohl(ip->ip_src.s_addr) != pair->addr0.s_addr && (ntohs(udphdr->uh_sport) == pair->port0) ){
-            if  ( ntohl(ip->ip_dst.s_addr) != pair->addr1.s_addr && (ntohs(udphdr->uh_dport) == pair->port1) ){
+        if ( ip->ip_src.s_addr != pair->addr0.s_addr && (ntohs(udphdr->uh_sport) == pair->port0) ){
+            if  ( ip->ip_dst.s_addr != pair->addr1.s_addr && (ntohs(udphdr->uh_dport) == pair->port1) ){
                 udp_streams = malloc(sizeof(struct udp_stream_t)); 
                 pair->udp_stream_last->udp_stream_next = udp_streams;
                 pair->udp_stream_last = udp_streams;
@@ -507,8 +507,8 @@ int check_udp_header(struct ip *ip, struct udphdr *udphdr, struct plist *plist){
                 pair->pair_count++;
                 return(0);
             }
-        } else if (ntohl(ip->ip_src.s_addr) != pair->addr1.s_addr && (ntohs(udphdr->uh_sport) == pair->port1) ){
-            if  (ntohl(ip->ip_dst.s_addr) != pair->addr0.s_addr && ntohs(udphdr->uh_dport) == pair->port0){
+        } else if (ip->ip_src.s_addr != pair->addr1.s_addr && (ntohs(udphdr->uh_sport) == pair->port1) ){
+            if  (ip->ip_dst.s_addr != pair->addr0.s_addr && ntohs(udphdr->uh_dport) == pair->port0){
                 udp_streams = malloc(sizeof(struct udp_stream_t)); 
                 pair->udp_stream_last->udp_stream_next = udp_streams;
                 pair->udp_stream_last = udp_streams;
@@ -529,11 +529,13 @@ int check_udp_header(struct ip *ip, struct udphdr *udphdr, struct plist *plist){
         pair = pair->pair_next;
     }
 
-	/* リストに既存の udp port pair が無いので新規にリストに追加 */
+    /*
+     * リストに既存の udp port pair が無いので新規にリストに追加
+     */
     pair_write = malloc(sizeof(struct udp_port_pair_t));
     pair_current->pair_next = pair_write;
-    pair_write->addr0.s_addr = ntohl(ip->ip_src.s_addr);    
-    pair_write->addr1.s_addr = ntohl(ip->ip_dst.s_addr);
+    pair_write->addr0.s_addr = ip->ip_src.s_addr;    
+    pair_write->addr1.s_addr = ip->ip_dst.s_addr;
     pair_write->pair_head = pair_head;
     (pair_write->port0) = ntohs(udphdr->uh_sport);
     (pair_write->port1) = ntohs(udphdr->uh_dport);
@@ -561,10 +563,12 @@ read_packet()
 {
     int i,j;
     struct     in_addr insaddr, indaddr;
-    struct     dgram *dgram;
+    struct     ether_header *ether;    
+    struct     ip     *ip;
     struct     tcphdr *tcphdr;
     struct     udphdr *udphdr;
-    char *p;
+    uint_t     iplen; /* calcurated ip length including ip header and payload */
+    struct     plist *plist_current; /* 処理用の packet list 構造体 */
 
     conn_current = malloc(sizeof(struct connection_t));
     conn_head = conn_current;
@@ -574,47 +578,43 @@ read_packet()
 
     plist_current = plist_head;
     for ( i = 1 ; i < count + 1 ; i++){
-        dgram = (struct dgram *)plist_current->cap_datap;
-        
-        /* ether type 0x800=IP だけ読む */
-        if( check_ethertype(ntohs(dgram->ether.ether_type)) ){
+        ether = (struct ether_header *)plist_current->cap_datap;
 
-            p = (char *)&(dgram->ip);
-            for (j = 0 ; j < 20 ; j++){
-                printf("%x ", p[j]);
-            }
-            
+        /*
+         * ether type 0x800=IP だけ読む
+         */
+        if( check_ethertype(ntohs(ether->ether_type)) ){
+            /*
+             * IP ヘッダーを 32bit 境界に置くために IP 以降のデータをコピーする
+             */
+            iplen = ntohl(plist_current->php->caplen) - sizeof(struct snoop_pheader) - sizeof(struct ether_header);
+            memmove(ether, ether + 1, iplen);
+            ip = (struct ip *)ether;
+
             /* TCP の packet だけ読む */
-            if( dgram->ip.ip_p == IPPROTO_TCP){
+            if( ip->ip_p == IPPROTO_TCP){
                 if(debug){ /* debug 用 */ 
                     printf("==========================================\n");
                     printf("Packet:%d, Len:%d \n",plist_current->packet_number, plist_current->packet_len);
-                    printf("EtherType: %x\n",ntohs(dgram->ether.ether_type));
-                    printf("version     : %d\n",dgram->ip.ip_v);
-                    printf("header len  : %d\n",dgram->ip.ip_hl);
-                    printf("protocol    : %d\n",dgram->ip.ip_p);
-                    printf("id          : %d\n",ntohs(dgram->ip.ip_id));
-                    printf("check       : %x\n",ntohs(dgram->ip.ip_sum));
-                    printf("saddr       : %d.%d.%d.%d\n",dgram->ip.ip_src._S_un._S_un_b.s_b1,dgram->ip.ip_src._S_un._S_un_b.s_b2,
-                           dgram->ip.ip_src._S_un._S_un_b.s_b3,dgram->ip.ip_src._S_un._S_un_b.s_b4);
-                    printf("daddr       : %d.%d.%d.%d\n",dgram->ip.ip_dst._S_un._S_un_b.s_b1,dgram->ip.ip_dst._S_un._S_un_b.s_b2,
-                           dgram->ip.ip_dst._S_un._S_un_b.s_b3,dgram->ip.ip_dst._S_un._S_un_b.s_b4);
+                    printf("version     : %d\n",ip->ip_v);
+                    printf("header len  : %d\n",ip->ip_hl);
+                    printf("protocol    : %d\n",ip->ip_p);
+                    printf("id          : %d\n",ntohs(ip->ip_id));
+                    printf("check       : %x\n",ntohs(ip->ip_sum));
+                    printf("saddr       : %s\n", inet_ntoa(ip->ip_src));
+                    printf("daddr       : %s\n", inet_ntoa(ip->ip_dst));
                 }
 			
                 /* tcp ヘッダのアドレスを計算。IP ヘッダのアドレスに ip_hl x 4 byte を足す */ 	
-                tcphdr = (struct tcphdr *)((char *)&(dgram->ip) + ((dgram->ip.ip_hl)<<2) );
-                check_tcp_header(&(dgram->ip),tcphdr,plist_current);	
+                tcphdr = (struct tcphdr *)((char *)ip + ((ip->ip_hl)<<2));
+                check_tcp_header(ip, tcphdr, plist_current);	
             }/* if proto == TCP */ 
-            else {
-                printf("Not IP Packet ip_p = 0x%x\n", dgram->ip.ip_p);
-            }
-            printf("src = %s\n", inet_ntoa(dgram->ip.ip_src.s_addr));
             
             /* UDP の packet だけ読む */
-            if( dgram->ip.ip_p == IPPROTO_UDP){
+            if( ip->ip_p == IPPROTO_UDP){
                 /* UDP ヘッダのアドレスを計算。IP ヘッダのアドレスに ip_hl x 4 byte を足す */ 	
-                udphdr = (struct udphdr *)((char *)&(dgram->ip) + ((dgram->ip.ip_hl)<<2) );
-                check_udp_header(&(dgram->ip),udphdr,plist_current);	
+                udphdr = (struct udphdr *)((char *)ip + ((ip->ip_hl)<<2));
+                check_udp_header(ip, udphdr, plist_current);	
             }/* if proto == UDP */
 
         } /* if ethertype == ethernet */
@@ -638,10 +638,8 @@ read_conn_list()
     printf("        Connection List              \n");
     for(; conn != NULL ; conn = conn->conn_next ){
         printf("====================================\n");
-        printf("addr 0: %d.%d.%d.%d : Port: %hu\n",conn->addr0._S_un._S_un_b.s_b1,conn->addr0._S_un._S_un_b.s_b2,
-               conn->addr0._S_un._S_un_b.s_b3, conn->addr0._S_un._S_un_b.s_b4,conn->port0);	
-        printf("addr 1: %d.%d.%d.%d : Port: %hu\n",conn->addr1._S_un._S_un_b.s_b1,conn->addr1._S_un._S_un_b.s_b2
-               ,conn->addr1._S_un._S_un_b.s_b3, conn->addr1._S_un._S_un_b.s_b4,conn->port1);
+        printf("addr 0: %s : Port: %hu\n",inet_ntoa(conn->addr0),conn->port0);
+        printf("addr 1: %s : Port: %hu\n",inet_ntoa(conn->addr1),conn->port1);	        
         printf("Number of packets  : %d\n", conn->conn_count);
     }
 
@@ -705,21 +703,11 @@ mkbin()
 
         printf("\n====================================\n");
         printf("Number of packets  : %d\n\n", conn->conn_count);
-        printf("Addr 0: %d.%d.%d.%d : Port: %d\n",
-               conn->addr0._S_un._S_un_b.s_b1,conn->addr0._S_un._S_un_b.s_b2,
-               conn->addr0._S_un._S_un_b.s_b3,conn->addr0._S_un._S_un_b.s_b4,conn->port0);
-        printf("Addr 1: %d.%d.%d.%d : Port: %d\n",
-               conn->addr1._S_un._S_un_b.s_b1,conn->addr1._S_un._S_un_b.s_b2,conn->addr1._S_un._S_un_b.s_b3,conn->addr1._S_un._S_un_b.s_b4,
-               conn->port1);
+        printf("Addr 0: %s : Port: %d\n", inet_ntoa(conn->addr0),conn->port0);
+        printf("Addr 1: %s : Port: %d\n", inet_ntoa(conn->addr1),conn->port1);
         /* file 名をセット*/
-        sprintf(file0,"%d.%d.%d.%d.%d-%d.%d.%d.%d.%d",conn->addr0._S_un._S_un_b.s_b1,conn->addr0._S_un._S_un_b.s_b2,
-                conn->addr0._S_un._S_un_b.s_b3,conn->addr0._S_un._S_un_b.s_b4,
-                conn->port0,conn->addr1._S_un._S_un_b.s_b1,conn->addr1._S_un._S_un_b.s_b2,
-                conn->addr1._S_un._S_un_b.s_b3,conn->addr1._S_un._S_un_b.s_b4,conn->port1);
-        sprintf(file1,"%d.%d.%d.%d.%d-%d.%d.%d.%d.%d",conn->addr1._S_un._S_un_b.s_b1,conn->addr1._S_un._S_un_b.s_b2,
-                conn->addr1._S_un._S_un_b.s_b3,conn->addr1._S_un._S_un_b.s_b4,
-                conn->port1,conn->addr0._S_un._S_un_b.s_b1,conn->addr0._S_un._S_un_b.s_b2,
-                conn->addr0._S_un._S_un_b.s_b3,conn->addr0._S_un._S_un_b.s_b4,conn->port0);
+        sprintf(file0,"%s-%s",inet_ntoa(conn->addr0), inet_ntoa(conn->addr1));
+        sprintf(file1,"%s-%s",inet_ntoa(conn->addr1), inet_ntoa(conn->addr0));
         if (( fp0 = fopen(file0,"wb")) == NULL){
             perror("fopen");
         }
@@ -773,13 +761,10 @@ view_conn(int optflag)
     double acked_elapse ; /* ack を受けるまでの時間 */
     uint32_t next_seq[2];   /* Diag 用の 一つ前のパケットまでの SEQ の進行状況 */
 
-    
-
-        /* conn_head は空なので、次から・・*/
+    /* conn_head は空なので、次から・・*/
     conn = conn_head->conn_next ;
     if(conn == NULL )
         return(0);
-
 
     printf("\n====================================\n");
     printf("        Check each connection                \n");
@@ -787,11 +772,9 @@ view_conn(int optflag)
     for( ; conn != NULL ; conn = conn->conn_next) {
         printf("\n====================================\n");
         printf("Number of packets  : %d\n\n", conn->conn_count);
-        printf("Addr 0: %d.%d.%d.%d : Port: %d",conn->addr0._S_un._S_un_b.s_b1,conn->addr0._S_un._S_un_b.s_b2,
-               conn->addr0._S_un._S_un_b.s_b3,conn->addr0._S_un._S_un_b.s_b4,conn->port0);	
+        printf("Addr 0: %s : Port: %d",inet_ntoa(conn->addr0),conn->port0);	
         printf("\t\t\t\t\t");
-        printf("Addr 1: %d.%d.%d.%d : Port: %d\n",conn->addr1._S_un._S_un_b.s_b1,conn->addr1._S_un._S_un_b.s_b2,
-               conn->addr1._S_un._S_un_b.s_b3,conn->addr1._S_un._S_un_b.s_b4,conn->port1);
+        printf("Addr 1: %s : Port: %d\n",inet_ntoa(conn->addr1),conn->port1);	        
         printf("---------------------------------------------------------------");
         printf("----------------------------------------------------------------\n");
         stream_init_time = TIMEVAL_TO_SEC(conn->stream->plist->php->pktime);
@@ -1187,10 +1170,7 @@ int
 main(int argc, char *argv[])
 {
 	int i;
-	struct plist *plist_current;
-
         int optflag = 0;
-        
 	char *file_name;
 
 	if (argc < 2) {
