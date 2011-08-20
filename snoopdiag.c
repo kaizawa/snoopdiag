@@ -5,6 +5,7 @@
  * プログラム。 
  * gcc snoopdiag.c -o snoopdiag -lnsl
 */
+#include <stdio.h>
 #include <errno.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -16,26 +17,24 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <fcntl.h>
-#include <stdio.h>
 #include <sys/signal.h>
 #include <string.h>
 #include <net/if.h>
 #include <netinet/if_ether.h>
 #include <netinet/in_systm.h>
 #include <netinet/ip.h>
-//#include <netinet/tcp.h>
+#include <netinet/tcp.h>
 #include <sys/dlpi.h>
+#include <arpa/inet.h>
 
-#define SACK
 #define	SNOOP_V2          2
-#define debug 1
 
 #define LIST  0x1	     /* connection list output */
 #define VIEW  0x1<<1	     /* view output */
 #define DIAG  0x1<<2	     /* packet view with statistics output */
 #define BIN   0x1<<3         /* make TCP data files */
 #define VIEWUDP   0x1<<4     /* view udp packet pair */
-
+#define VERBOSE   0x1<<5     /* Print verbose outputs */
 /*
  * Sequence number、Ack number を得るマクロ
  */
@@ -46,7 +45,7 @@
  * TCP のデータ長を得る。Fragment Packet の場合は IP のデータ長を返す
  */ 
 #define TCPLEN(stream)  ntohs(stream->ip->ip_off) & (8191) ? TCPFRAGMENTLEN(stream) : TCPNONFRAGMENTLEN(stream) 
-#define TCPNONFRAGMENTLEN(stream) ntohs(stream->ip->ip_len) - (stream->ip->ip_hl<<2) - (stream->tcphdr->th_offset<<2)
+#define TCPNONFRAGMENTLEN(stream) ntohs(stream->ip->ip_len) - (stream->ip->ip_hl<<2) - (stream->tcphdr->th_off<<2)
 #define TCPFRAGMENTLEN(stream) ((ntohs(stream->ip->ip_off) & (8191))<<3) + IPLEN(stream) - (stream->ip->ip_hl<<2)
 
 /*
@@ -68,67 +67,14 @@
 
 /*
  * SYN もしくは FIN フラグが立っているかどうかを確認する
+ * フラグがたっていれば 1, 立っていなければ 0 を返す。
  */
-#define SYNFIN(stream)     (( *(stream->tcphdr->th_flags) & (TH_FIN | TH_SYN)) != NULL)
+#define SYNFIN(tcphdr) (tcphdr->th_flags & (TH_FIN | TH_SYN) ? 1 : 0)
 
 /*
  * timeval 構造体から秒を算出する
  */
 #define TIMEVAL_TO_SEC(pktime) ntohl(pktime.tv_sec) + (ntohl(pktime.tv_usec) / 1.0e+6)
-
-/*
- * Ethernet ヘッダー
- */
-struct  etherhdr {
-        struct  ether_addr ether_dhost;
-        struct  ether_addr ether_shost;
-        ushort_t ether_type;
-};
-
-/*
- * IP ヘッダー
- */ 
-//struct ip {
-//    uchar_t ip_hl:4,                /* header length */
-//        ip_v:4;                 /* version */
-//    uchar_t ip_tos;                 /* type of service */
-//    short   ip_len;                 /* total length */
-//    ushort_t ip_id;                 /* identification */
-//    short   ip_off;                 /* fragment offset field */
-//#define IP_DF 0x4000                    /* dont fragment flag */
-//#define IP_MF 0x2000                    /* more fragments flag */
-//    uchar_t ip_ttl;                 /* time to live */
-//    uchar_t ip_p;                   /* protocol */
-//    ushort_t ip_sum;                /* checksum */
-//    /* 本来 IP address は以下の宣言で良さそうだが、2byte ずれてしまう・・*/
-//    struct  in_addr ip_src, ip_dst;    /* source and dest address */
-//    //uchar_t ip_src[4];
-//    //uchar_t ip_dst[4];
-//};
-
-/*
- * TCP ヘッダー
- */ 
-typedef struct tcphdr {
-        uint16_t         th_sport;    /* Source port */
-        uint16_t         th_dport;    /* Destination port */
-        uint32_t         th_seq;      /* Sequence number */
-        uint32_t         th_ack;      /* Acknowledgement number */
-        uint_t           th_reserve:4,/* Offset to the packet data */
-                         th_offset:4; /* 予約済み */ 
-        uint8_t          th_flags[1]; /* TCP flags */
-        uint16_t         th_win;      /* Allocation number */
-        uint16_t         th_sum;      /* TCP checksum */
-        uint16_t         th_urp;      /* Urgent pointer */
-}tcphdr;
-
-/* Bit values in 'th_flags' field of the TCP packet header */
-#define TH_FIN                  0x01    /* Sender will not send more */
-#define TH_SYN                  0x02    /* Synchronize sequence numbers */
-#define TH_RST                  0x04    /* Reset the connection */
-#define TH_PUSH                 0x08    /* This segment requests a push */
-#define TH_ACK                  0x10    /* Acknowledgement field is valid */
-#define TH_URG                  0x20    /* Urgent pointer field is valid */
 
 typedef struct udphdr {
         uint16_t       uh_sport;               /* source port */
@@ -136,14 +82,6 @@ typedef struct udphdr {
         uint16_t        uh_ulen;               /* udp length */
         uint16_t        uh_sum;                /* udp checksum */
 }udphdr;
-
-
-/* ether と IP のヘッダを合わせた data gram 構造体 */
-struct dgram
-{
-	struct etherhdr ether;
-	struct ip    ip;
-} ;
 
 /*
  * TCP の 1 connection 毎の構造体
@@ -238,9 +176,154 @@ struct plist *plist_head;                  /* packet list 構造体の先頭へ�
 
 int count=0; /* 総 packet 数 */
 int bufflen;
-char *buffp; 
+char *buffp;
+int optflag;
 
-int check_ethertype(int );
+int sn_open(char *);
+int sn_count();
+int get_plist();
+int check_tcp_header(struct ip *, struct tcphdr *, struct plist *);
+int check_udp_header(struct ip *, struct udphdr *, struct plist *);
+int read_packet();
+int read_conn_list();
+int read_pair_list();
+int mkbin();
+int view_conn();
+int view_pair();
+int check_ethertype(int);
+void print_usage(char *);
+
+int
+main(int argc, char *argv[])
+{
+	int i;
+	char *file_name;
+
+	if (argc < 2) {
+            print_usage(argv[0]);
+            exit(1);
+	}
+
+	while ((i = getopt (argc, argv, "Dludbv:")) != EOF) {
+		switch (i){
+			case 'l':
+				optflag |= LIST;	
+				break;
+
+			case 'd':
+				optflag |= DIAG;
+				break;
+
+			case 'v':
+                                optflag |= VIEW;
+				break;
+                                
+			case 'b':
+                                optflag |= BIN;	
+				break;
+                                
+			case 'u':
+                                optflag |= VIEWUDP;	
+				break;
+
+			case 'D':
+                                optflag |= VERBOSE;	
+				break;                                
+
+			default:
+                            print_usage(argv[0]);
+                            exit(0);
+		}
+	}
+
+	/*
+	 * snoop ファイルを open 必須
+	 */
+	if(argc == 3)
+		file_name = argv[2];
+	else
+		file_name = argv[1];
+
+	if( sn_open(file_name) < 0){
+		perror("sn_open()");
+		exit(0);
+	}
+
+
+	/*
+	 * packet 数(count)を得る 必須
+	 */
+	if (sn_count() < 0){
+		perror("sn_count()");
+		exit(0);
+	}
+	
+	/*
+	 * packet のリスト(plist_head)を得る 必須
+	 */
+	if ( get_plist() < 0){
+		perror("get_plist()");
+		exit(0);
+	}
+
+	/*
+	 * packet を読む 必須
+	 */
+	if ( read_packet() < 0){
+		perror("read_packet()");
+		exit(0);
+	}
+
+	/*
+	 *  connection list 
+	 *  と udp port pair list を見る オプション
+         */
+	if(optflag & LIST){
+		if ( read_conn_list() <0 ) { 
+			perror("read_conn_list()");
+			exit(0);
+		}
+		if ( read_pair_list() <0 ) { 
+			perror("read_pair_list()");
+			exit(0);
+		}                
+              
+	}
+
+	/*
+	 *  各 connection の packet の流れを表示 オプション
+	 *  追加オプションによって、packet の ack を確認等を行う
+         */
+	if(optflag & (VIEW|DIAG)){
+		if ( view_conn() < 0 ) { 
+			perror("view_conn()");
+			exit(0);
+		}
+	}
+        
+	/*
+	 *  各 UDP port pair の packet の流れを表示 オプション
+	 *  追加オプションはまだ未実装
+         */
+	if(optflag & (VIEWUDP)){
+		if ( view_pair(optflag) < 0 ) { 
+			perror("view_pair()");
+			exit(0);
+		}
+	}        
+
+	/*
+	 *  各 connection の 各方向毎の TCP の data 部をファイルとして保存。
+	 *  file 名 は <src IP>.<src port>-<dest IP>.<dest port>
+         */
+	if(optflag & BIN){
+		if ( mkbin() <0 ) { 
+			perror("mkbin()");
+			exit(0);
+		}
+	}
+	return (0);
+}
 
 /*
  * snoop ファイルの open 処理
@@ -297,7 +380,7 @@ sn_open(char *file_name)
 }
 
 /*
- * packet 数をカウント処理（debug を 1 にすれば 各 packet の長さと、経過時間も出力可能）
+ * packet 数をカウント処理 -D オプションをつければ 各 packet の長さと、経過時間も出力可能）
  */
 int
 sn_count()
@@ -312,7 +395,7 @@ sn_count()
 
     printf("Counting numbers of the packets ....");
     while(data_size){
-        if(debug) printf("Packet Len: %u Time: %f\n", ntohl(php->pktlen), TIMEVAL_TO_SEC(php->pktime) - initial_time);
+        if(optflag & VERBOSE) printf("Packet Len: %u Time: %f\n", ntohl(php->pktlen), TIMEVAL_TO_SEC(php->pktime) - initial_time);
         data_size -= ntohl(php->reclen);
         php =  (struct snoop_pheader *)((unsigned int)php + ntohl(php->reclen));
         count++;
@@ -366,6 +449,8 @@ check_tcp_header(struct ip *ip, struct tcphdr *tcphdr, struct plist *plist)
     int i;
     struct connection_t *conn;
     struct stream_t *streams;
+
+    
 
     conn = conn_head;
     /*
@@ -551,7 +636,6 @@ int check_udp_header(struct ip *ip, struct udphdr *udphdr, struct plist *plist){
     return(0);
 }
 
-
 /*
  *  plist を使って packet を読む
  */
@@ -566,6 +650,7 @@ read_packet()
     struct     udphdr *udphdr;
     uint_t     iplen; /* calcurated ip length including ip header and payload */
     struct     plist *plist_current; /* 処理用の packet list 構造体 */
+    uchar_t    *p;
 
     conn_current = malloc(sizeof(struct connection_t));
     conn_head = conn_current;
@@ -584,13 +669,15 @@ read_packet()
             /*
              * IP ヘッダーを 32bit 境界に置くために IP 以降のデータをコピーする
              */
-            iplen = ntohl(plist_current->php->caplen) - sizeof(struct snoop_pheader) - sizeof(struct ether_header);
+            iplen = ntohl(plist_current->php->reclen) - sizeof(struct snoop_pheader) - sizeof(struct ether_header);
             memmove(ether, ether + 1, iplen);
             ip = (struct ip *)ether;
 
             /* TCP の packet だけ読む */
             if( ip->ip_p == IPPROTO_TCP){
-                if(debug){ /* debug 用 */ 
+                /* tcp ヘッダのアドレスを計算。IP ヘッダのアドレスに ip_hl x 4 byte を足す */ 	
+                tcphdr = (struct tcphdr *)((uchar_t *)ip + ((ip->ip_hl)<<2));
+                if(optflag & VERBOSE){ /* 冗長出力用 */ 
                     printf("==========================================\n");
                     printf("Packet:%d, Len:%d \n",plist_current->packet_number, plist_current->packet_len);
                     printf("version     : %d\n",ip->ip_v);
@@ -600,10 +687,23 @@ read_packet()
                     printf("check       : %x\n",ntohs(ip->ip_sum));
                     printf("saddr       : %s\n", inet_ntoa(ip->ip_src));
                     printf("daddr       : %s\n", inet_ntoa(ip->ip_dst));
+                    printf("src port    : %hu\n", ntohs(tcphdr->th_sport));
+                    printf("dst port    : %hu\n", ntohs(tcphdr->th_dport));
+                    printf("seq         : %u\n", ntohl(tcphdr->th_seq));                    
+                    printf("ack         : %u\n", ntohl(tcphdr->th_ack));                    
+                    printf("win         : %hu\n", ntohs(tcphdr->th_win));
+
+                    p = (uchar_t *)ip;
+                    printf(" ");                    
+                    for(j = 0 ; j < iplen ; j++){
+                        printf("%02x", p[j]);
+                        if((j+1)%16==0)
+                            printf("\n");
+                        if(j%2)
+                            printf(" ");                    
+                    }
+                    printf("\n");                    
                 }
-			
-                /* tcp ヘッダのアドレスを計算。IP ヘッダのアドレスに ip_hl x 4 byte を足す */ 	
-                tcphdr = (struct tcphdr *)((char *)ip + ((ip->ip_hl)<<2));
                 check_tcp_header(ip, tcphdr, plist_current);	
             }/* if proto == TCP */ 
             
@@ -645,7 +745,9 @@ read_conn_list()
     return(0);
 }
 
-int read_pair_list(){
+int
+read_pair_list()
+{
 	struct udp_port_pair_t *pair;
 
 	/* pair_head は空なので、次から・・*/
@@ -661,7 +763,6 @@ int read_pair_list(){
                 printf("addr 1: %s : Port: %hu\n",inet_ntoa(pair->addr1),pair->port1);
 		printf("Number of packets  : %d\n", pair->pair_count);
 	}
-
 }
 
 /*
@@ -717,15 +818,15 @@ mkbin()
             bzero((char *)tcpdata1,sizeof(tcpdata1));
 
             if(streams->direction){
-                /* まず、ip_len と ip_hl と th_offset より、packet 中のデータ長を計算*/
+                /* まず、ip_len と ip_hl と th_off より、packet 中のデータ長を計算*/
                 tcpdatalen1 = TCPLEN(streams);
                 /* TCP header の address + header len の address のデータ を一時 buffer に copy */
-                memcpy(tcpdata1, (char *)streams->tcphdr + (streams->tcphdr->th_offset<<2), tcpdatalen1 );
+                memcpy(tcpdata1, (char *)streams->tcphdr + (streams->tcphdr->th_off<<2), tcpdatalen1 );
                 /* ファイルに書き込み */
                 fwrite(tcpdata1,sizeof(char), tcpdatalen1, fp1 );
             } else {
                 tcpdatalen0 = TCPLEN(streams);
-                memcpy(tcpdata0, (char *)streams->tcphdr + (streams->tcphdr->th_offset<<2) ,tcpdatalen0 );
+                memcpy(tcpdata0, (char *)streams->tcphdr + (streams->tcphdr->th_off<<2) ,tcpdatalen0 );
                 fwrite(tcpdata0,sizeof(char), tcpdatalen0, fp0 );
             }
         }
@@ -734,14 +835,13 @@ mkbin()
     }
 }
 
-
 /*
  * connection リスト各パケットを表示。
  * オプションフラグによっては通常出力に加えて、
  * sequence 番号チェックを表示
  */
 int
-view_conn(int optflag)
+view_conn()
 { 
     struct connection_t *conn;
     struct stream_t *streams;
@@ -807,23 +907,22 @@ view_conn(int optflag)
                 printf("(%u)", ACK(streams));            
                 printf(" Win:%d", ntohs(streams->tcphdr->th_win));
                 printf(" Len:%u", TCPLEN(streams));
-                printf(" ");            
                 if (ntohs(streams->ip->ip_off) & IP_MF)
                     printf(" MF");
                 if (ntohs(streams->ip->ip_off) & IP_DF)
                     printf(" DF");                                            
                 printf(" ");
-                if(( *(streams->tcphdr->th_flags) | TH_FIN) == *(streams->tcphdr->th_flags))
+                if(streams->tcphdr->th_flags & TH_FIN)
                     printf("FIN ");
-                if(( *(streams->tcphdr->th_flags) | TH_SYN) == *(streams->tcphdr->th_flags))
+                if(streams->tcphdr->th_flags & TH_SYN)
                     printf("SYN ");
-                if(( *(streams->tcphdr->th_flags) | TH_RST) == *(streams->tcphdr->th_flags))
+                if(streams->tcphdr->th_flags & TH_RST)
                     printf("RST ");
-                if(( *(streams->tcphdr->th_flags) | TH_PUSH) == *(streams->tcphdr->th_flags))
+                if(streams->tcphdr->th_flags & TH_PUSH)
                     printf("PSH ");
-                if(( *(streams->tcphdr->th_flags) | TH_ACK) == *(streams->tcphdr->th_flags))
+                if(streams->tcphdr->th_flags & TH_ACK)
                     printf("ACK ");
-                if(( *(streams->tcphdr->th_flags) | TH_URG) == *(streams->tcphdr->th_flags))
+                if(streams->tcphdr->th_flags & TH_URG)
                     printf("URG ");
                 printf("\n");
             }
@@ -857,8 +956,7 @@ view_conn(int optflag)
              * TCP ヘッダー長が 5(=20bytes) より大きければ、なんらかの
              * TCP Option が設定されている
              */
-#ifdef SACK
-            if(streams->tcphdr->th_offset > 5 ){
+            if(streams->tcphdr->th_off > 5 ){
                     uint16_t tcphdrlen;
                     char *tcpopt, *tcpopt_head;
                     uint8_t optlen;
@@ -868,14 +966,14 @@ view_conn(int optflag)
                         uint32_t rightedge;
                     } *sackval;
 
-                    tcphdrlen = streams->tcphdr->th_offset <<2;
+                    tcphdrlen = streams->tcphdr->th_off <<2;
                     
                     tcpopt_head = tcpopt = (char *)streams->tcphdr + 20 ; 
                     while(*tcpopt != NULL && (tcpopt - tcpopt_head) < tcphdrlen - 20){
                         switch(*tcpopt){
                             case 1: /* NOP。次のoption へ*/
                                 tcpopt++; 
-                                if (debug) { INDENT(streams); printf("\t> NOP option found\n");}
+                                if(optflag & VERBOSE) { INDENT(streams); printf("\t> NOP option found\n");}
                                 break;
                             case 4: /* SACK Permitted option */
                                 tcpopt = tcpopt + 2; /* SACK OK option 次の option へ */
@@ -905,14 +1003,13 @@ view_conn(int optflag)
                                 break;
                             }
                             default : /* 他の Option */
-                                if (debug){ INDENT(streams); printf("\t> TCP option found\n");}
+                                if(optflag & VERBOSE){ INDENT(streams); printf("\t> TCP option found\n");}
                                 optlen = *(uint8_t *)(tcpopt + 1); 
                                 tcpopt = tcpopt + optlen; 
                                 break;
                         } /* switch end */
                     } /* while end */
                 } /* if tcphdr > 20 end */
-#endif /* SACK */
             
             /*
              * 次にくると期待されていた SEQ と、このパケットの SEQ を比較
@@ -922,20 +1019,19 @@ view_conn(int optflag)
             if(conn->snd_nxt[streams->direction] == 0){
                     /* 期待する SEQ(SND_NXT)が 0 つまりここは snoop でのこの TCP */
                     /* connction の最初の packet だけが該当する                  */
-                conn->snd_nxt[streams->direction] =
-                    SEQ(streams) + len + SYNFIN(streams);
+                conn->snd_nxt[streams->direction] = SEQ(streams) + len + SYNFIN(streams->tcphdr);
             } else {
                 next_seq[streams->direction] = conn->snd_nxt[streams->direction];
                 if( next_seq[streams->direction] < SEQ(streams))
                 {
-                        /* 期待しているより、大きい SEQ 番号がきた */
+                    /* 期待しているより、大きい SEQ 番号がきた */
                     INDENT(streams);
                     printf("\t> out of order data packet. expected SEQ = %u\n",next_seq[streams->direction]);
                     
                 }
                 else if (next_seq[streams->direction] == SEQ(streams)){
                     /* 期待通りのパケットが来た。snd_nxt を更新                       */
-                    conn->snd_nxt[streams->direction] = SEQ(streams) + len + SYNFIN(streams);
+                    conn->snd_nxt[streams->direction] = SEQ(streams) + len + SYNFIN(streams->tcphdr);
                 }
                 else{
                         /* 期待値よりも小さい SEQ。再送？*/
@@ -960,7 +1056,7 @@ view_conn(int optflag)
                         /* データがあって、SEQ と SND_NXT が同じ packet を調べる*/	
                         if ( TCPLEN(streams_check) > 0 && SEQ(streams_check) == conn->snd_nxt[streams->direction]){
                             conn->snd_nxt[streams->direction] =
-                                SEQ(streams_check) + TCPLEN(streams_check)  + SYNFIN(streams_check);
+                                SEQ(streams_check) + TCPLEN(streams_check)  + SYNFIN(streams_check->tcphdr);
                             INDENT(streams);
                             printf("\t> SEQ = %u was already sent by pakcet %d\n",
                                    SEQ(streams_check), streams_check->plist->packet_number);
@@ -994,33 +1090,25 @@ view_conn(int optflag)
                  * データがある場合
                  */
                 exp_ack = SEQ(streams) + len ;
-                if(*(streams->tcphdr->th_flags) & (TH_FIN | TH_SYN)){
+                if(SYNFIN(streams->tcphdr)){
                     /*
                      * FIN or SYN の場合
                      */
                     exp_ack++;
-                    if(debug){
-                        INDENT(streams);
-                        printf("\t\texp_ack(len & FIN/SYN) = %u packet %d\n",exp_ack,streams->plist->packet_number);
-                    }
                 }
-                if(debug) {
-                    INDENT(streams);
-                    printf("\t\texp_ack(len) = %u Packet %d\n",exp_ack,streams->plist->packet_number);
-                }
+                INDENT(streams);                
+                printf("\t> expecting ACk = %u\n",exp_ack);
             } else {
                 /*
                  * データがない場合
                  */                
-                if( *(streams->tcphdr->th_flags) & (TH_FIN | TH_SYN)){
+                if(SYNFIN(streams->tcphdr)){
                     /*
                      * FIN or SYN の場合
                      */
                     exp_ack = SEQ(streams) + 1;
-                    if(debug) {
-                        INDENT(streams);
-                        printf("\t\texp_ack(FIN/SYN) = %u packet %d\n",exp_ack,streams->plist->packet_number);
-                    }
+                    INDENT(streams);
+                    printf("\t> expecting ACK = %u\n",exp_ack);
                 } else {
                     /*
                      * ただの ACK パケット。
@@ -1071,7 +1159,9 @@ view_conn(int optflag)
 
 
 /* UDP port pair リスト各パケットを表示。*/
-int view_pair(int optflag){ 
+int
+view_pair()
+{ 
     struct udp_port_pair_t *pair;
     struct udp_stream_t *udp_streams;
     struct udp_stream_t *udp_streams_check;
@@ -1130,7 +1220,6 @@ int view_pair(int optflag){
     } /* loop for UDP port pair list end */
 }
 
-
 /*
  * ether header の type フィールドを読んで、type を識別。
  * IP の時だけ 1 を返す
@@ -1154,143 +1243,17 @@ int check_ethertype(int type)
   return (0);
 }
 
-int
-main(int argc, char *argv[])
+void
+print_usage(char *name)
 {
-	int i;
-        int optflag = 0;
-	char *file_name;
-
-	if (argc < 2) {
-		printf("Usage: %s [ -ldvb ] <file name>\n",argv[0]); 
-		printf("             -l : view connections list\n"); 
-		printf("             -d : view packet with Seq+Ack diagnosis\n"); 
-		printf("             -v : view packet\n");
-                printf("             -b : make tcp data files\n");
-		printf("             -u : view UDP packet\n");                                
-		exit(0);
-	}
-
-	while ((i = getopt (argc, argv, "ludbv:")) != EOF) {
-		switch (i){
-			case 'l':
-				optflag |= LIST;	
-				break;
-
-			case 'd':
-				optflag |= DIAG;
-				break;
-
-			case 'v':
-                                optflag |= VIEW;
-				break;
-                                
-			case 'b':
-                                optflag |= BIN;	
-				break;
-                                
-			case 'u':
-                                optflag |= VIEWUDP;	
-				break;                                
-
-			default:
-				printf("Usage: %s [ -ldv ] <file name> \n",argv[0]); 
-				printf("             -l : view connections list\n"); 
-				printf("             -d : view packet with Seq+Ack diagnosis\n"); 
-				printf("             -v : view packet \n");
-                                printf("             -b : make tcp data files\n");
-                                printf("             -u : view UDP packet\n");                                
-				exit(0);
-		}
-	}
-
-	/*
-	 * snoop ファイルを open 必須
-	 */
-	if(argc == 3)
-		file_name = argv[2];
-	else
-		file_name = argv[1];
-
-	if( sn_open(file_name) < 0){
-		perror("sn_open()");
-		exit(0);
-	}
-
-
-	/*
-	 * packet 数(count)を得る 必須
-	 */
-	if (sn_count() < 0){
-		perror("sn_count()");
-		exit(0);
-	}
-
-	
-	/*
-	 * packet のリスト(plist_head)を得る 必須
-	 */
-	if ( get_plist() < 0){
-		perror("get_plist()");
-		exit(0);
-	}
-
-	/*
-	 * packet を読む 必須
-	 */
-	if ( read_packet() < 0){
-		perror("read_packet()");
-		exit(0);
-	}
-
-	/*
-	 *  connection list 
-	 *  と udp port pair list を見る オプション
-         */
-	if(optflag & LIST){
-		if ( read_conn_list() <0 ) { 
-			perror("read_conn_list()");
-			exit(0);
-		}
-		if ( read_pair_list() <0 ) { 
-			perror("read_pair_list()");
-			exit(0);
-		}                
-              
-	}
-
-	/*
-	 *  各 connection の packet の流れを表示 オプション
-	 *  追加オプションによって、packet の ack を確認等を行う
-         */
-	if(optflag & (VIEW|DIAG)){
-		if ( view_conn(optflag) < 0 ) { 
-			perror("view_conn()");
-			exit(0);
-		}
-	}
-        
-	/*
-	 *  各 UDP port pair の packet の流れを表示 オプション
-	 *  追加オプションはまだ未実装
-         */
-	if(optflag & (VIEWUDP)){
-		if ( view_pair(optflag) < 0 ) { 
-			perror("view_pair()");
-			exit(0);
-		}
-	}        
-
-	/*
-	 *  各 connection の 各方向毎の TCP の data 部をファイルとして保存。
-	 *  file 名 は <src IP>.<src port>-<dest IP>.<dest port>
-         */
-	if(optflag & BIN){
-		if ( mkbin() <0 ) { 
-			perror("mkbin()");
-			exit(0);
-		}
-	}
-	return (0);
+    printf("Usage: %s [ -ldv ] <file name> \n",name); 
+    printf("             -l : view connections list\n"); 
+    printf("             -d : view packet with Seq+Ack diagnosis\n"); 
+    printf("             -v : view packet \n");
+    printf("             -b : make tcp data files\n");
+    printf("             -u : view UDP packet\n");
+    printf("             -D : print verbose output\n");
+    printf("\n");
+    printf("Example:\n");
+    printf("  snoopdiag -ldD snoop.out\n");
 }
-
