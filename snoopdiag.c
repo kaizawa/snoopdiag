@@ -399,8 +399,8 @@ check_tcp_header(struct ip *ip, struct tcphdr *tcphdr, struct plist *plist)
         }
 
         printf("ip->ip_src.s_addr=%X, conn->addr0.s_addr=%X\n", ip->ip_src.s_addr, conn->addr0.s_addr); //here
-        printf("ip->ip_dst.s_addr=%X, conn->addr1.s_addr=%X\n", ip->ip_dst.s_addr, conn->addr1.s_addr); //here        
-         
+        printf("ntohs(tcphdr->th_sport)=%d, conn->port0=%d\n", ntohs(tcphdr->th_sport),conn->port0);
+        
         if (ip->ip_src.s_addr != conn->addr0.s_addr && (ntohs(tcphdr->th_sport) == conn->port0) ){
             if  ( ip->ip_dst.s_addr != conn->addr1.s_addr && (ntohs(tcphdr->th_dport) == conn->port1) ){
                 streams = malloc(sizeof(struct stream_t)); 
