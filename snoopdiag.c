@@ -401,8 +401,8 @@ check_tcp_header(struct ip *ip, struct tcphdr *tcphdr, struct plist *plist)
         printf("ip->ip_src.s_addr=%X, conn->addr0.s_addr=%X\n", ip->ip_src.s_addr, conn->addr0.s_addr); //here
         printf("ntohs(tcphdr->th_sport)=%d, conn->port0=%d\n", ntohs(tcphdr->th_sport),conn->port0);
         
-        if (ip->ip_src.s_addr != conn->addr0.s_addr && (ntohs(tcphdr->th_sport) == conn->port0) ){
-            if  ( ip->ip_dst.s_addr != conn->addr1.s_addr && (ntohs(tcphdr->th_dport) == conn->port1) ){
+        if (ip->ip_src.s_addr == conn->addr0.s_addr && (ntohs(tcphdr->th_sport) == conn->port0) ){
+            if  ( ip->ip_dst.s_addr == conn->addr1.s_addr && (ntohs(tcphdr->th_dport) == conn->port1) ){
                 streams = malloc(sizeof(struct stream_t)); 
                 conn->stream_last->stream_next = streams;
                 conn->stream_last = streams;
@@ -414,8 +414,8 @@ check_tcp_header(struct ip *ip, struct tcphdr *tcphdr, struct plist *plist)
                 conn->conn_count++;
                 return(0);
             }
-        } else if (ip->ip_src.s_addr != conn->addr1.s_addr && (ntohs(tcphdr->th_sport) == conn->port1) ){
-            if  (ip->ip_dst.s_addr != conn->addr0.s_addr && (ntohs(tcphdr->th_dport) == conn->port0) ){
+        } else if (ip->ip_src.s_addr == conn->addr1.s_addr && (ntohs(tcphdr->th_sport) == conn->port1) ){
+            if  (ip->ip_dst.s_addr == conn->addr0.s_addr && (ntohs(tcphdr->th_dport) == conn->port0) ){
                 streams = malloc(sizeof(struct stream_t)); 
                 conn->stream_last->stream_next = streams;
                 conn->stream_last = streams;
@@ -494,8 +494,8 @@ int check_udp_header(struct ip *ip, struct udphdr *udphdr, struct plist *plist){
             }
         }
         
-        if ( ip->ip_src.s_addr != pair->addr0.s_addr && (ntohs(udphdr->uh_sport) == pair->port0) ){
-            if  ( ip->ip_dst.s_addr != pair->addr1.s_addr && (ntohs(udphdr->uh_dport) == pair->port1) ){
+        if ( ip->ip_src.s_addr == pair->addr0.s_addr && (ntohs(udphdr->uh_sport) == pair->port0) ){
+            if  ( ip->ip_dst.s_addr == pair->addr1.s_addr && (ntohs(udphdr->uh_dport) == pair->port1) ){
                 udp_streams = malloc(sizeof(struct udp_stream_t)); 
                 pair->udp_stream_last->udp_stream_next = udp_streams;
                 pair->udp_stream_last = udp_streams;
@@ -507,8 +507,8 @@ int check_udp_header(struct ip *ip, struct udphdr *udphdr, struct plist *plist){
                 pair->pair_count++;
                 return(0);
             }
-        } else if (ip->ip_src.s_addr != pair->addr1.s_addr && (ntohs(udphdr->uh_sport) == pair->port1) ){
-            if  (ip->ip_dst.s_addr != pair->addr0.s_addr && ntohs(udphdr->uh_dport) == pair->port0){
+        } else if (ip->ip_src.s_addr == pair->addr1.s_addr && (ntohs(udphdr->uh_sport) == pair->port1) ){
+            if  (ip->ip_dst.s_addr == pair->addr0.s_addr && ntohs(udphdr->uh_dport) == pair->port0){
                 udp_streams = malloc(sizeof(struct udp_stream_t)); 
                 pair->udp_stream_last->udp_stream_next = udp_streams;
                 pair->udp_stream_last = udp_streams;
@@ -657,10 +657,8 @@ int read_pair_list(){
 	printf("        UPD port pair List              \n");
 	for(; pair != NULL ; pair = pair->pair_next ){
 		printf("====================================\n");
-		printf("addr 0: %d.%d.%d.%d : Port: %d\n",pair->addr0._S_un._S_un_b.s_b1,pair->addr0._S_un._S_un_b.s_b2,
-                       pair->addr0._S_un._S_un_b.s_b3, pair->addr0._S_un._S_un_b.s_b4, pair->port0);	
-		printf("addr 1: %d.%d.%d.%d : Port: %d\n",pair->addr1._S_un._S_un_b.s_b1,pair->addr1._S_un._S_un_b.s_b2,
-                       pair->addr1._S_un._S_un_b.s_b2, pair->addr1._S_un._S_un_b.s_b1,pair->port1);
+                printf("addr 0: %s : Port: %hu\n",inet_ntoa(pair->addr0),pair->port0);
+                printf("addr 1: %s : Port: %hu\n",inet_ntoa(pair->addr1),pair->port1);
 		printf("Number of packets  : %d\n", pair->pair_count);
 	}
 
@@ -1102,11 +1100,9 @@ int view_pair(int optflag){
     for( ; pair != NULL ; pair = pair->pair_next) {
         printf("\n====================================\n");
         printf("Number of packets  : %d\n\n", pair->pair_count);
-        printf("Addr 0: %d.%d.%d.%d : Port: %d",pair->addr0._S_un._S_un_b.s_b1,pair->addr0._S_un._S_un_b.s_b2
-               ,pair->addr0._S_un._S_un_b.s_b3,pair->addr0._S_un._S_un_b.s_b4,pair->port0);
+        printf("Addr 0: %s : Port: %d",inet_ntoa(pair->addr0), pair->port0);
         printf("\t\t\t\t\t");
-        printf("Addr 1: %d.%d.%d.%d : Port: %d\n",pair->addr1._S_un._S_un_b.s_b1,pair->addr1._S_un._S_un_b.s_b2,
-               pair->addr1._S_un._S_un_b.s_b3, pair->addr1._S_un._S_un_b.s_b4,pair->port1);
+        printf("Addr 1: %s : Port: %d",inet_ntoa(pair->addr1), pair->port1);        
         printf("---------------------------------------------------------------");
         printf("----------------------------------------------------------------\n");
         udp_stream_init_time = TIMEVAL_TO_SEC(pair->udp_stream->plist->php->pktime);
