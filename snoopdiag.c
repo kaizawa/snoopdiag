@@ -1,8 +1,8 @@
 /*
  * RFC 1761 Snoop Packet Capture File Format
  * 
- * snoop ¥Õ¥¡¥¤¥ë¤òÆÉ¤ó¤Ç¡¢É½¼¨¡Ê¤½¤ÎÂ¾¡Ë¤¹¤ë
- * ¥×¥í¥°¥é¥à¡£ 
+ * snoop ãƒ•ã‚¡ã‚¤ãƒ«ã‚’èª­ã‚“ã§ã€è¡¨ç¤ºï¼ˆãã®ä»–ï¼‰ã™ã‚‹
+ * ãƒ—ãƒ­ã‚°ãƒ©ãƒ ã€‚ 
  * gcc snoopdiag.c -o snoopdiag -lnsl
 */
 #include <errno.h>
@@ -37,47 +37,47 @@
 #define VIEWUDP   0x1<<4     /* view udp packet pair */
 
 /*
- * Sequence number¡¢Ack number ¤òÆÀ¤ë¥Ş¥¯¥í
+ * Sequence numberã€Ack number ã‚’å¾—ã‚‹ãƒã‚¯ãƒ­
  */
 #define SEQ(stream) ntohl(stream->tcphdr->th_seq)
 #define ACK(stream) ntohl(stream->tcphdr->th_ack)
 
 /*
- * TCP ¤Î¥Ç¡¼¥¿Ä¹¤òÆÀ¤ë¡£Fragment Packet ¤Î¾ì¹ç¤Ï IP ¤Î¥Ç¡¼¥¿Ä¹¤òÊÖ¤¹
+ * TCP ã®ãƒ‡ãƒ¼ã‚¿é•·ã‚’å¾—ã‚‹ã€‚Fragment Packet ã®å ´åˆã¯ IP ã®ãƒ‡ãƒ¼ã‚¿é•·ã‚’è¿”ã™
  */ 
 #define TCPLEN(stream)  ntohs(stream->ip->ip_off) & (8191) ? TCPFRAGMENTLEN(stream) : TCPNONFRAGMENTLEN(stream) 
 #define TCPNONFRAGMENTLEN(stream) ntohs(stream->ip->ip_len) - (stream->ip->ip_hl<<2) - (stream->tcphdr->th_offset<<2)
 #define TCPFRAGMENTLEN(stream) ((ntohs(stream->ip->ip_off) & (8191))<<3) + IPLEN(stream) - (stream->ip->ip_hl<<2)
 
 /*
- * UDP ¤Î¥Ç¡¼¥¿Ä¹¤òÆÀ¤ë¡£Fragment Packet ¤Î¾ì¹ç¤Ï IP ¤Î¥Ç¡¼¥¿Ä¹¤òÊÖ¤¹
+ * UDP ã®ãƒ‡ãƒ¼ã‚¿é•·ã‚’å¾—ã‚‹ã€‚Fragment Packet ã®å ´åˆã¯ IP ã®ãƒ‡ãƒ¼ã‚¿é•·ã‚’è¿”ã™
  */ 
 #define UDPLEN(stream) (ntohs(stream->ip->ip_off) & (8191) ? UDPFRAGMENTLEN(stream) : UDPNONFRAGMENTLEN(stream))
 #define UDPNONFRAGMENTLEN(stream) (ntohs(stream->ip->ip_len) - (stream->ip->ip_hl<<2) - 8)
 #define UDPFRAGMENTLEN(stream) (IPLEN(stream))
 
 /*
- * IP ¤Î¥Ç¡¼¥¿Ä¹¤òÆÀ¤ë
+ * IP ã®ãƒ‡ãƒ¼ã‚¿é•·ã‚’å¾—ã‚‹
  */
 #define IPLEN(stream)  ntohs(stream->ip->ip_len) - (stream->ip->ip_hl<<2)
 
 /*
- * Packet ¤ÎÊı¸ş¤Ë¤è¤Ã¤Æ½ĞÎÏÉ½¼¨°ÌÃÖ¡Ê±¦orº¸¡Ë¤òÊÑ¤¨¤ë¤¿¤á¤Î¥Ş¥¯¥í
+ * Packet ã®æ–¹å‘ã«ã‚ˆã£ã¦å‡ºåŠ›è¡¨ç¤ºä½ç½®ï¼ˆå³orå·¦ï¼‰ã‚’å¤‰ãˆã‚‹ãŸã‚ã®ãƒã‚¯ãƒ­
  */
 #define INDENT(stream)     if(stream->direction) printf("\t\t\t\t\t\t\t\t\t");
 
 /*
- * SYN ¤â¤·¤¯¤Ï FIN ¥Õ¥é¥°¤¬Î©¤Ã¤Æ¤¤¤ë¤«¤É¤¦¤«¤ò³ÎÇ§¤¹¤ë
+ * SYN ã‚‚ã—ãã¯ FIN ãƒ•ãƒ©ã‚°ãŒç«‹ã£ã¦ã„ã‚‹ã‹ã©ã†ã‹ã‚’ç¢ºèªã™ã‚‹
  */
 #define SYNFIN(stream)     (( *(stream->tcphdr->th_flags) & (TH_FIN | TH_SYN)) != NULL)
 
 /*
- * timeval ¹½Â¤ÂÎ¤«¤éÉÃ¤ò»»½Ğ¤¹¤ë
+ * timeval æ§‹é€ ä½“ã‹ã‚‰ç§’ã‚’ç®—å‡ºã™ã‚‹
  */
 #define TIMEVAL_TO_SEC(pktime) ntohl(pktime.tv_sec) + (ntohl(pktime.tv_usec) / 1.0e+6)
 
 /*
- * Ethernet ¥Ø¥Ã¥À¡¼
+ * Ethernet ãƒ˜ãƒƒãƒ€ãƒ¼
  */
 struct  etherhdr {
         struct  ether_addr ether_dhost;
@@ -86,7 +86,7 @@ struct  etherhdr {
 };
 
 /*
- * IP ¥Ø¥Ã¥À¡¼
+ * IP ãƒ˜ãƒƒãƒ€ãƒ¼
  */ 
 struct ip {
     uchar_t ip_hl:4,                /* header length */
@@ -100,14 +100,14 @@ struct ip {
     uchar_t ip_ttl;                 /* time to live */
     uchar_t ip_p;                   /* protocol */
     ushort_t ip_sum;                /* checksum */
-    /* ËÜÍè IP address ¤Ï°Ê²¼¤ÎÀë¸À¤ÇÎÉ¤µ¤½¤¦¤À¤¬¡¢2byte ¤º¤ì¤Æ¤·¤Ş¤¦¡¦¡¦*/
+    /* æœ¬æ¥ IP address ã¯ä»¥ä¸‹ã®å®£è¨€ã§è‰¯ã•ãã†ã ãŒã€2byte ãšã‚Œã¦ã—ã¾ã†ãƒ»ãƒ»*/
     struct  in_addr ip_src, ip_dst;    /* source and dest address */
     //uchar_t ip_src[4];
     //uchar_t ip_dst[4];
 };
 
 /*
- * TCP ¥Ø¥Ã¥À¡¼
+ * TCP ãƒ˜ãƒƒãƒ€ãƒ¼
  */ 
 typedef struct tcphdr {
         uint16_t         th_sport;    /* Source port */
@@ -115,7 +115,7 @@ typedef struct tcphdr {
         uint32_t         th_seq;      /* Sequence number */
         uint32_t         th_ack;      /* Acknowledgement number */
         uint_t           th_reserve:4,/* Offset to the packet data */
-                         th_offset:4; /* Í½ÌóºÑ¤ß */ 
+                         th_offset:4; /* äºˆç´„æ¸ˆã¿ */ 
         uint8_t          th_flags[1]; /* TCP flags */
         uint16_t         th_win;      /* Allocation number */
         uint16_t         th_sum;      /* TCP checksum */
@@ -138,7 +138,7 @@ typedef struct udphdr {
 }udphdr;
 
 
-/* ether ¤È IP ¤Î¥Ø¥Ã¥À¤ò¹ç¤ï¤»¤¿ data gram ¹½Â¤ÂÎ */
+/* ether ã¨ IP ã®ãƒ˜ãƒƒãƒ€ã‚’åˆã‚ã›ãŸ data gram æ§‹é€ ä½“ */
 struct dgram
 {
 	struct etherhdr ether;
@@ -146,61 +146,61 @@ struct dgram
 } ;
 
 /*
- * TCP ¤Î 1 connection Ëè¤Î¹½Â¤ÂÎ
+ * TCP ã® 1 connection æ¯ã®æ§‹é€ ä½“
  */
 struct connection_t{
-    struct connection_t *conn_head; /* connection list ¤ÎÀèÆ¬¡¡*/
-    struct connection_t *conn_next; /* connection list ¤Î ¼¡¤Î¹½Â¤ÂÎ */
-    struct in_addr addr0;               /* connection ¤Î ÊÒÂ¦¤Î IP */
-    struct in_addr addr1;               /* connection ¤Î ¤â¤¦ÊÒÂ¦¤Î IP */
-    uint16_t port0;                 /* connection ¤Î ÊÒÂ¦¤Î port */
-    uint16_t port1;                 /* connection ¤Î ¤â¤¦ÊÒÂ¦¤Î port */
-    int conn_count;                 /* ¤³¤Î connection ¤Î Packet ¿ô */
-    struct stream_t *stream;        /* ¤³¤Î connection ¤ÎºÇ½é¤ÎPacket¤Î stream_t ¹½Â¤ÂÎ¤Ø¤Î¥İ¥¤¥ó¥¿*/ 
-    struct stream_t *stream_last;   /* ¤³¤Î connection ¤ÎºÇ¸åPacket¤Î stream_t ¹½Â¤ÂÎ¤Ø¤Î¥İ¥¤¥ó¥¿*/
-    uint32_t snd_nxt[2] ;           /* Diag »şÍÑ¤Î SEQ ¤Î¿Ê¹Ô¾õ¶·¡£ÁĞÊı¸ş¤ËÍÑ°Õ*/
+    struct connection_t *conn_head; /* connection list ã®å…ˆé ­ã€€*/
+    struct connection_t *conn_next; /* connection list ã® æ¬¡ã®æ§‹é€ ä½“ */
+    struct in_addr addr0;               /* connection ã® ç‰‡å´ã® IP */
+    struct in_addr addr1;               /* connection ã® ã‚‚ã†ç‰‡å´ã® IP */
+    uint16_t port0;                 /* connection ã® ç‰‡å´ã® port */
+    uint16_t port1;                 /* connection ã® ã‚‚ã†ç‰‡å´ã® port */
+    int conn_count;                 /* ã“ã® connection ã® Packet æ•° */
+    struct stream_t *stream;        /* ã“ã® connection ã®æœ€åˆã®Packetã® stream_t æ§‹é€ ä½“ã¸ã®ãƒã‚¤ãƒ³ã‚¿*/ 
+    struct stream_t *stream_last;   /* ã“ã® connection ã®æœ€å¾ŒPacketã® stream_t æ§‹é€ ä½“ã¸ã®ãƒã‚¤ãƒ³ã‚¿*/
+    uint32_t snd_nxt[2] ;           /* Diag æ™‚ç”¨ã® SEQ ã®é€²è¡ŒçŠ¶æ³ã€‚åŒæ–¹å‘ã«ç”¨æ„*/
 
 }; 
 struct connection_t *conn_current, *conn_write, *conn_head;
 
 /*
- * ³Æ connection Æâ¤Î Packet ¤Î plist ¤Î¥¢¥É¥ì¥¹¤ò³ÊÇ¼¤·¤¿¹½Â¤ÂÎ
+ * å„ connection å†…ã® Packet ã® plist ã®ã‚¢ãƒ‰ãƒ¬ã‚¹ã‚’æ ¼ç´ã—ãŸæ§‹é€ ä½“
  */
 struct stream_t{
-	struct stream_t *stream_first;  /* connection ¤ÎºÇ½é¤Î stream_t ¹½Â¤ÂÎ */ 
-	struct stream_t *stream_next;   /* ¼¡¤Î packet ¤Î stream_t ¹½Â¤ÂÎ */
-	struct plist *plist;            /* plist ¹½Â¤ÂÎ¤Ø¤Î¥İ¥¤¥ó¥¿ */
-	struct ip *ip;            /* IP ¥Ø¥Ã¥À¤Î¥İ¥¤¥ó¥¿ */
-        struct tcphdr *tcphdr;          /* TCP ¥Ø¥Ã¥À¤Î¥İ¥¤¥ó¥¿ */
-	int    direction;               /* ½èÍı¾å 0 or 1 ¤Ç packet ¤ÎÁ÷¿®Êı¸ş¤òÆÃÄê¤¹¤ë */ 
+	struct stream_t *stream_first;  /* connection ã®æœ€åˆã® stream_t æ§‹é€ ä½“ */ 
+	struct stream_t *stream_next;   /* æ¬¡ã® packet ã® stream_t æ§‹é€ ä½“ */
+	struct plist *plist;            /* plist æ§‹é€ ä½“ã¸ã®ãƒã‚¤ãƒ³ã‚¿ */
+	struct ip *ip;            /* IP ãƒ˜ãƒƒãƒ€ã®ãƒã‚¤ãƒ³ã‚¿ */
+        struct tcphdr *tcphdr;          /* TCP ãƒ˜ãƒƒãƒ€ã®ãƒã‚¤ãƒ³ã‚¿ */
+	int    direction;               /* å‡¦ç†ä¸Š 0 or 1 ã§ packet ã®é€ä¿¡æ–¹å‘ã‚’ç‰¹å®šã™ã‚‹ */ 
 };
 
 /*
- * UDP ¤Î port ¥Ú¥¢ Ëè¤Î¹½Â¤ÂÎ
+ * UDP ã® port ãƒšã‚¢ æ¯ã®æ§‹é€ ä½“
  */
 struct udp_port_pair_t{
-    struct udp_port_pair_t *pair_head; /* udp port pair list ¤ÎÀèÆ¬¡¡*/
-    struct udp_port_pair_t *pair_next; /* udp port pair list ¤Î ¼¡¤Î¹½Â¤ÂÎ */
-    struct in_addr addr0;               /* udp port pair ¤Î ÊÒÂ¦¤Î IP */
-    struct in_addr addr1;               /* udp port pair ¤Î ¤â¤¦ÊÒÂ¦¤Î IP */
-    uint16_t port0;                 /* udp port pair ¤Î ÊÒÂ¦¤Î port */
-    uint16_t port1;                 /* udp port pair ¤Î ¤â¤¦ÊÒÂ¦¤Î port */
-    int pair_count;                 /* ¤³¤Î udp port pair ¤Î Packet ¿ô */
-    struct udp_stream_t *udp_stream;        /* ¤³¤Î udp port pair ¤ÎºÇ½é¤ÎPacket¤Î udp_stream_t ¹½Â¤ÂÎ¤Ø¤Î¥İ¥¤¥ó¥¿*/ 
-    struct udp_stream_t *udp_stream_last;   /* ¤³¤Î udp port pair ¤ÎºÇ¸åPacket¤Î udp_stream_t ¹½Â¤ÂÎ¤Ø¤Î¥İ¥¤¥ó¥¿*/
+    struct udp_port_pair_t *pair_head; /* udp port pair list ã®å…ˆé ­ã€€*/
+    struct udp_port_pair_t *pair_next; /* udp port pair list ã® æ¬¡ã®æ§‹é€ ä½“ */
+    struct in_addr addr0;               /* udp port pair ã® ç‰‡å´ã® IP */
+    struct in_addr addr1;               /* udp port pair ã® ã‚‚ã†ç‰‡å´ã® IP */
+    uint16_t port0;                 /* udp port pair ã® ç‰‡å´ã® port */
+    uint16_t port1;                 /* udp port pair ã® ã‚‚ã†ç‰‡å´ã® port */
+    int pair_count;                 /* ã“ã® udp port pair ã® Packet æ•° */
+    struct udp_stream_t *udp_stream;        /* ã“ã® udp port pair ã®æœ€åˆã®Packetã® udp_stream_t æ§‹é€ ä½“ã¸ã®ãƒã‚¤ãƒ³ã‚¿*/ 
+    struct udp_stream_t *udp_stream_last;   /* ã“ã® udp port pair ã®æœ€å¾ŒPacketã® udp_stream_t æ§‹é€ ä½“ã¸ã®ãƒã‚¤ãƒ³ã‚¿*/
 }; 
 struct udp_port_pair_t *pair_current, *pair_write, *pair_head;
 
 /*
- * ³Æ udp port pair Æâ¤Î Packet ¤Î plist ¤Î¥¢¥É¥ì¥¹¤ò³ÊÇ¼¤·¤¿¹½Â¤ÂÎ
+ * å„ udp port pair å†…ã® Packet ã® plist ã®ã‚¢ãƒ‰ãƒ¬ã‚¹ã‚’æ ¼ç´ã—ãŸæ§‹é€ ä½“
  */
 struct udp_stream_t{
-	struct udp_stream_t *udp_stream_first;  /* udp port pair ¤ÎºÇ½é¤Î udp_stream_t ¹½Â¤ÂÎ */ 
-	struct udp_stream_t *udp_stream_next;   /* ¼¡¤Î packet ¤Î udp_stream_t ¹½Â¤ÂÎ */
-	struct plist *plist;            /* plist ¹½Â¤ÂÎ¤Ø¤Î¥İ¥¤¥ó¥¿ */
-	struct ip *ip;            /* IP ¥Ø¥Ã¥À¤Î¥İ¥¤¥ó¥¿ */
-        struct udphdr *udphdr;          /* UDP ¥Ø¥Ã¥À¤Î¥İ¥¤¥ó¥¿ */
-	int    direction;               /* ½èÍı¾å 0 or 1 ¤Ç packet ¤ÎÁ÷¿®Êı¸ş¤òÆÃÄê¤¹¤ë */ 
+	struct udp_stream_t *udp_stream_first;  /* udp port pair ã®æœ€åˆã® udp_stream_t æ§‹é€ ä½“ */ 
+	struct udp_stream_t *udp_stream_next;   /* æ¬¡ã® packet ã® udp_stream_t æ§‹é€ ä½“ */
+	struct plist *plist;            /* plist æ§‹é€ ä½“ã¸ã®ãƒã‚¤ãƒ³ã‚¿ */
+	struct ip *ip;            /* IP ãƒ˜ãƒƒãƒ€ã®ãƒã‚¤ãƒ³ã‚¿ */
+        struct udphdr *udphdr;          /* UDP ãƒ˜ãƒƒãƒ€ã®ãƒã‚¤ãƒ³ã‚¿ */
+	int    direction;               /* å‡¦ç†ä¸Š 0 or 1 ã§ packet ã®é€ä¿¡æ–¹å‘ã‚’ç‰¹å®šã™ã‚‹ */ 
 };
 
 /*
@@ -224,27 +224,27 @@ struct snoop_pheader {
 }; 
 
 /*
- * ³Æ packet ½èÍıÍÑ¤ÎÇÛÎó
+ * å„ packet å‡¦ç†ç”¨ã®é…åˆ—
  */
 struct plist {
 	int			packet_number;
-        struct plist		*first;        /* plist_head ¤Ø¤Î¥İ¥¤¥ó¥¿*/
-        struct plist		*nextpkt;      /* ¼¡¤Î plist ¹½Â¤ÂÎ¤Ø¤Î¥İ¥¤¥ó¥¿*/
-	struct snoop_pheader	*php;          /* snoop_pheader ¹½Â¤ÂÎ¤Ø¤Î¥İ¥¤¥ó¥¿*/
-        int             	packet_len;    /* ¼Â packet Ä¹*/
-	char			*cap_datap;    /* ¼Â packet ¤Ø¤Î¥İ¥¤¥ó¥¿*/
+        struct plist		*first;        /* plist_head ã¸ã®ãƒã‚¤ãƒ³ã‚¿*/
+        struct plist		*nextpkt;      /* æ¬¡ã® plist æ§‹é€ ä½“ã¸ã®ãƒã‚¤ãƒ³ã‚¿*/
+	struct snoop_pheader	*php;          /* snoop_pheader æ§‹é€ ä½“ã¸ã®ãƒã‚¤ãƒ³ã‚¿*/
+        int             	packet_len;    /* å®Ÿ packet é•·*/
+	char			*cap_datap;    /* å®Ÿ packet ã¸ã®ãƒã‚¤ãƒ³ã‚¿*/
 };
-struct plist *plist_head;                  /* packet list ¹½Â¤ÂÎ¤ÎÀèÆ¬¤Ø¤Î¥İ¥¤¥ó¥¿ */
-struct plist *plist_current, *plist_write; /* ½èÍıÍÑ¤Î packet list ¹½Â¤ÂÎ */
+struct plist *plist_head;                  /* packet list æ§‹é€ ä½“ã®å…ˆé ­ã¸ã®ãƒã‚¤ãƒ³ã‚¿ */
+struct plist *plist_current, *plist_write; /* å‡¦ç†ç”¨ã® packet list æ§‹é€ ä½“ */
 
-int count=0; /* Áí packet ¿ô */
+int count=0; /* ç· packet æ•° */
 int bufflen;
 char *buffp; 
 
 int check_ethertype(int );
 
 /*
- * snoop ¥Õ¥¡¥¤¥ë¤Î open ½èÍı
+ * snoop ãƒ•ã‚¡ã‚¤ãƒ«ã® open å‡¦ç†
  */
 int
 sn_open(char *file_name)
@@ -264,7 +264,7 @@ sn_open(char *file_name)
 	}
 
 	/*
-	 * snoop ¥Õ¥¡¥¤¥ë¤ò¥á¥â¥ê¤ËÆÉ¤ß¹ş¤à
+	 * snoop ãƒ•ã‚¡ã‚¤ãƒ«ã‚’ãƒ¡ãƒ¢ãƒªã«èª­ã¿è¾¼ã‚€
 	 */
 	p = mmap(0, st.st_size, PROT_READ|PROT_WRITE, MAP_PRIVATE, fd, 0);
 	if (p == (char *)-1) {
@@ -278,7 +278,7 @@ sn_open(char *file_name)
 	fhp = (struct snoop_fheader *)buffp;
 
 	/*
-	 * snoop ¤Î header ¥Ø¥Ã¥À¡¼¤ò³ÎÇ§¤¹¤ë
+	 * snoop ã® header ãƒ˜ãƒƒãƒ€ãƒ¼ã‚’ç¢ºèªã™ã‚‹
 	 */
 	if (strcmp((char *)"snoop", (char *)fhp->name) != 0 ||
 	    htonl(fhp->version) != SNOOP_V2 ||
@@ -289,7 +289,7 @@ sn_open(char *file_name)
 	printf("File Check OK.\n");
 
 	/*
-	 * ¥Õ¥¡¥¤¥ë¥Ø¥Ã¥À¤ò½ü¤¤¤¿¼Â¥Ç¡¼¥¿¤Î address ¤È¡¢¥Ç¡¼¥¿Ä¹¤òÆÀ¤ë
+	 * ãƒ•ã‚¡ã‚¤ãƒ«ãƒ˜ãƒƒãƒ€ã‚’é™¤ã„ãŸå®Ÿãƒ‡ãƒ¼ã‚¿ã® address ã¨ã€ãƒ‡ãƒ¼ã‚¿é•·ã‚’å¾—ã‚‹
 	 */
 	bufflen = st.st_size - sizeof(struct snoop_fheader);
 	buffp =  buffp + sizeof(struct snoop_fheader);
@@ -298,7 +298,7 @@ sn_open(char *file_name)
 }
 
 /*
- * packet ¿ô¤ò¥«¥¦¥ó¥È½èÍı¡Êdebug ¤ò 1 ¤Ë¤¹¤ì¤Ğ ³Æ packet ¤ÎÄ¹¤µ¤È¡¢·Ğ²á»ş´Ö¤â½ĞÎÏ²ÄÇ½¡Ë
+ * packet æ•°ã‚’ã‚«ã‚¦ãƒ³ãƒˆå‡¦ç†ï¼ˆdebug ã‚’ 1 ã«ã™ã‚Œã° å„ packet ã®é•·ã•ã¨ã€çµŒéæ™‚é–“ã‚‚å‡ºåŠ›å¯èƒ½ï¼‰
  */
 int
 sn_count()
@@ -325,7 +325,7 @@ sn_count()
 }
 
 /*
- *  ³Æ packet ¤Î¾ğÊó¤òÀş·Á¥ê¥¹¥È plist ¤Ø³ÊÇ¼
+ *  å„ packet ã®æƒ…å ±ã‚’ç·šå½¢ãƒªã‚¹ãƒˆ plist ã¸æ ¼ç´
  */
 int 
 get_plist(){
@@ -352,14 +352,14 @@ get_plist(){
 		plist_current->nextpkt = ++plist_write;
 		php =  (struct snoop_pheader *)((int)php + ntohl(php->reclen));
 	} 
-	plist_current->nextpkt = NULL; /* ¥ê¥¹¥È¤ÎºÇ¸å¤Î next pointer ¤Ï NULL */
+	plist_current->nextpkt = NULL; /* ãƒªã‚¹ãƒˆã®æœ€å¾Œã® next pointer ã¯ NULL */
         printf("Done\n");
 
 	return(0);
 
 }
 
-/* ip, tcp ¥Ø¥Ã¥À¤ÎÆâÍÆ¤ò³ÎÇ§¤·¡¢connection Ëè¤Î¥°¥ë¡¼¥×¤òºî¤ë*/
+/* ip, tcp ãƒ˜ãƒƒãƒ€ã®å†…å®¹ã‚’ç¢ºèªã—ã€connection æ¯ã®ã‚°ãƒ«ãƒ¼ãƒ—ã‚’ä½œã‚‹*/
 int
 check_tcp_header(struct ip *ip, struct tcphdr *tcphdr, struct plist *plist)
 {
@@ -369,12 +369,12 @@ check_tcp_header(struct ip *ip, struct tcphdr *tcphdr, struct plist *plist)
 
     conn = conn_head;
     /*
-     * IP address  ¤È TCP port ¤ÎÁÈ¤ß¹ç¤ï¤»¤«¤é¡¢´ûÂ¸¤Î connection list ¤ÎÍ­Ìµ¤ò³Î¤«¤á¤ë
+     * IP address  ã¨ TCP port ã®çµ„ã¿åˆã‚ã›ã‹ã‚‰ã€æ—¢å­˜ã® connection list ã®æœ‰ç„¡ã‚’ç¢ºã‹ã‚ã‚‹
      */
     while (1){
         /*
-         * fragment offset ¤¬ 0 °Ê³°¡Êfragment¤·¤Æ¤¤¤ë) IP data gram ¤òÈ½Äê¡£
-         * ºÇ½é¤Î fragment ¤Ï TCP ¥Ø¥Ã¥À¤¬ÉÕ¤¤¤Æ¤¤¤ë¤Î¤Ç¡¢¤³¤³¤òÄÌ²á¤¹¤ëÉ¬Í×¤ÏÌµ¤¤
+         * fragment offset ãŒ 0 ä»¥å¤–ï¼ˆfragmentã—ã¦ã„ã‚‹) IP data gram ã‚’åˆ¤å®šã€‚
+         * æœ€åˆã® fragment ã¯ TCP ãƒ˜ãƒƒãƒ€ãŒä»˜ã„ã¦ã„ã‚‹ã®ã§ã€ã“ã“ã‚’é€šéã™ã‚‹å¿…è¦ã¯ç„¡ã„
          */
         if (ntohs(ip->ip_off) & (8191)){
             if (
@@ -386,11 +386,11 @@ check_tcp_header(struct ip *ip, struct tcphdr *tcphdr, struct plist *plist)
 
                 for (streams = conn->stream ; streams != NULL ; streams = streams->stream_next){
                     /*
-                     * Æ±¤¸ IPID ¤ò¤â¤Ä packet ¤òÃµ¤¹
+                     * åŒã˜ IPID ã‚’ã‚‚ã¤ packet ã‚’æ¢ã™
                      */
                     if( ntohs(ip->ip_id) == ntohs(streams->ip->ip_id)){
                         /*
-                         * TCP ¥Ø¥Ã¥À¡¼¤ò ¸«¤Ä¤«¤Ã¤¿ fragment ¤ÎºÇ½é¤Î packet ¤Î TCP ¥Ø¥Ã¥À¡¼¤È¤¹¤ë
+                         * TCP ãƒ˜ãƒƒãƒ€ãƒ¼ã‚’ è¦‹ã¤ã‹ã£ãŸ fragment ã®æœ€åˆã® packet ã® TCP ãƒ˜ãƒƒãƒ€ãƒ¼ã¨ã™ã‚‹
                          */
                         tcphdr = streams->tcphdr;
                         break;
@@ -409,7 +409,7 @@ check_tcp_header(struct ip *ip, struct tcphdr *tcphdr, struct plist *plist)
                 streams->plist = plist; 
                 streams->ip = ip; 
                 streams->tcphdr = tcphdr;
-                streams->direction = 0; /* source ¤È addr0 ¤Î ip ¤¬ Æ±¤¸¤Ê¤Î¤Ç direction ¤Ï 0 */
+                streams->direction = 0; /* source ã¨ addr0 ã® ip ãŒ åŒã˜ãªã®ã§ direction ã¯ 0 */
                 conn->conn_count++;
                 return(0);
             }
@@ -422,7 +422,7 @@ check_tcp_header(struct ip *ip, struct tcphdr *tcphdr, struct plist *plist)
                 streams->plist = plist; 
                 streams->ip = ip; 
                 streams->tcphdr = tcphdr;
-                streams->direction = 1; /* ¾å¤ÎµÕ */
+                streams->direction = 1; /* ä¸Šã®é€† */
                 conn->conn_count++;
                 return(0);
 
@@ -435,7 +435,7 @@ check_tcp_header(struct ip *ip, struct tcphdr *tcphdr, struct plist *plist)
         conn = conn->conn_next;
     }
 
-    /* ¥ê¥¹¥È¤Ë´ûÂ¸¤Î connection ¤¬Ìµ¤¤¤Î¤Ç¿·µ¬¤Ë¥ê¥¹¥È¤ËÄÉ²Ã */
+    /* ãƒªã‚¹ãƒˆã«æ—¢å­˜ã® connection ãŒç„¡ã„ã®ã§æ–°è¦ã«ãƒªã‚¹ãƒˆã«è¿½åŠ  */
     conn_write = malloc(sizeof(struct connection_t));
     conn_current->conn_next = conn_write;
     conn_write->addr0.s_addr = ntohl(ip->ip_src.s_addr);
@@ -454,13 +454,13 @@ check_tcp_header(struct ip *ip, struct tcphdr *tcphdr, struct plist *plist)
     conn_write->stream->plist = plist; 
     conn_write->stream->ip = ip; 
     conn_write->stream->tcphdr = tcphdr;
-    conn_write->stream->direction = 0; /* ºÇ½é¤Ë packet ¤òÁ÷¿®¤·¤Æ¤­¤¿Êı¸ş¤ò 0 ¤È¤¹¤ë*/
+    conn_write->stream->direction = 0; /* æœ€åˆã« packet ã‚’é€ä¿¡ã—ã¦ããŸæ–¹å‘ã‚’ 0 ã¨ã™ã‚‹*/
     conn_current = conn_write;
 			
     return(0);
 }
 
-/* ip, udp ¥Ø¥Ã¥À¤ÎÆâÍÆ¤ò³ÎÇ§¤·¡¢udp session Ëè¤Î¥°¥ë¡¼¥×¤òºî¤ë*/
+/* ip, udp ãƒ˜ãƒƒãƒ€ã®å†…å®¹ã‚’ç¢ºèªã—ã€udp session æ¯ã®ã‚°ãƒ«ãƒ¼ãƒ—ã‚’ä½œã‚‹*/
 int check_udp_header(struct ip *ip, struct udphdr *udphdr, struct plist *plist){
     int i;
     struct udp_port_pair_t *pair;
@@ -469,11 +469,11 @@ int check_udp_header(struct ip *ip, struct udphdr *udphdr, struct plist *plist){
     pair = pair_head;
     
         
-	/* IP address  ¤È UDP port ¤ÎÁÈ¤ß¹ç¤ï¤»¤«¤é¡¢´ûÂ¸¤Î udp port pair list ¤ÎÍ­Ìµ¤ò³Î¤«¤á¤ë */
+	/* IP address  ã¨ UDP port ã®çµ„ã¿åˆã‚ã›ã‹ã‚‰ã€æ—¢å­˜ã® udp port pair list ã®æœ‰ç„¡ã‚’ç¢ºã‹ã‚ã‚‹ */
     while (1){
 
-        /* fragment offset ¤¬ 0 °Ê³°¡Êfragment¤·¤Æ¤¤¤ë) IP data gram ¤òÈ½Äê*/
-        /* ºÇ½é¤Î fragment ¤Ï UDP ¥Ø¥Ã¥À¤¬ÉÕ¤¤¤Æ¤¤¤ë¤Î¤Ç¡¢¤³¤³¤òÄÌ²á¤¹¤ëÉ¬Í×¤ÏÌµ¤¤*/
+        /* fragment offset ãŒ 0 ä»¥å¤–ï¼ˆfragmentã—ã¦ã„ã‚‹) IP data gram ã‚’åˆ¤å®š*/
+        /* æœ€åˆã® fragment ã¯ UDP ãƒ˜ãƒƒãƒ€ãŒä»˜ã„ã¦ã„ã‚‹ã®ã§ã€ã“ã“ã‚’é€šéã™ã‚‹å¿…è¦ã¯ç„¡ã„*/
         if (ntohs(ip->ip_off) & (8191)){
             
             if (
@@ -484,9 +484,9 @@ int check_udp_header(struct ip *ip, struct udphdr *udphdr, struct plist *plist){
                 ){
 
                 for (udp_streams = pair->udp_stream ; udp_streams != NULL ; udp_streams = udp_streams->udp_stream_next){
-                        /* Æ±¤¸ IPID ¤ò¤â¤Ä packet ¤òÃµ¤¹*/
+                        /* åŒã˜ IPID ã‚’ã‚‚ã¤ packet ã‚’æ¢ã™*/
                     if(ntohs(ip->ip_id) == ntohs(udp_streams->ip->ip_id)){
-                            /* UDP ¥Ø¥Ã¥À¡¼¤ò ¸«¤Ä¤«¤Ã¤¿ fragment ¤ÎºÇ½é¤Î packet ¤Î UDP ¥Ø¥Ã¥À¡¼¤È¤¹¤ë*/
+                            /* UDP ãƒ˜ãƒƒãƒ€ãƒ¼ã‚’ è¦‹ã¤ã‹ã£ãŸ fragment ã®æœ€åˆã® packet ã® UDP ãƒ˜ãƒƒãƒ€ãƒ¼ã¨ã™ã‚‹*/
                         udphdr = udp_streams->udphdr;
                         break;
                     }
@@ -503,7 +503,7 @@ int check_udp_header(struct ip *ip, struct udphdr *udphdr, struct plist *plist){
                 udp_streams->plist = plist; 
                 udp_streams->ip = ip; 
                 udp_streams->udphdr = udphdr;
-                udp_streams->direction = 0; /* source ¤È addr0 ¤Î ip ¤¬ Æ±¤¸¤Ê¤Î¤Ç direction ¤Ï 0 */
+                udp_streams->direction = 0; /* source ã¨ addr0 ã® ip ãŒ åŒã˜ãªã®ã§ direction ã¯ 0 */
                 pair->pair_count++;
                 return(0);
             }
@@ -516,7 +516,7 @@ int check_udp_header(struct ip *ip, struct udphdr *udphdr, struct plist *plist){
                 udp_streams->plist = plist; 
                 udp_streams->ip = ip; 
                 udp_streams->udphdr = udphdr;
-                udp_streams->direction = 1; /* ¾å¤ÎµÕ */
+                udp_streams->direction = 1; /* ä¸Šã®é€† */
                 pair->pair_count++;
                 return(0);
 
@@ -529,7 +529,7 @@ int check_udp_header(struct ip *ip, struct udphdr *udphdr, struct plist *plist){
         pair = pair->pair_next;
     }
 
-	/* ¥ê¥¹¥È¤Ë´ûÂ¸¤Î udp port pair ¤¬Ìµ¤¤¤Î¤Ç¿·µ¬¤Ë¥ê¥¹¥È¤ËÄÉ²Ã */
+	/* ãƒªã‚¹ãƒˆã«æ—¢å­˜ã® udp port pair ãŒç„¡ã„ã®ã§æ–°è¦ã«ãƒªã‚¹ãƒˆã«è¿½åŠ  */
     pair_write = malloc(sizeof(struct udp_port_pair_t));
     pair_current->pair_next = pair_write;
     pair_write->addr0.s_addr = ntohl(ip->ip_src.s_addr);    
@@ -546,7 +546,7 @@ int check_udp_header(struct ip *ip, struct udphdr *udphdr, struct plist *plist){
     pair_write->udp_stream->plist = plist; 
     pair_write->udp_stream->ip = ip; 
     pair_write->udp_stream->udphdr = udphdr;
-    pair_write->udp_stream->direction = 0; /* ºÇ½é¤Ë packet ¤òÁ÷¿®¤·¤Æ¤­¤¿Êı¸ş¤ò 0 ¤È¤¹¤ë*/
+    pair_write->udp_stream->direction = 0; /* æœ€åˆã« packet ã‚’é€ä¿¡ã—ã¦ããŸæ–¹å‘ã‚’ 0 ã¨ã™ã‚‹*/
     pair_current = pair_write;
 			
     return(0);
@@ -554,7 +554,7 @@ int check_udp_header(struct ip *ip, struct udphdr *udphdr, struct plist *plist){
 
 
 /*
- *  plist ¤ò»È¤Ã¤Æ packet ¤òÆÉ¤à
+ *  plist ã‚’ä½¿ã£ã¦ packet ã‚’èª­ã‚€
  */
 int
 read_packet()
@@ -576,7 +576,7 @@ read_packet()
     for ( i = 1 ; i < count + 1 ; i++){
         dgram = (struct dgram *)plist_current->cap_datap;
         
-        /* ether type 0x800=IP ¤À¤±ÆÉ¤à */
+        /* ether type 0x800=IP ã ã‘èª­ã‚€ */
         if( check_ethertype(ntohs(dgram->ether.ether_type)) ){
 
             p = (char *)&(dgram->ip);
@@ -584,9 +584,9 @@ read_packet()
                 printf("%x ", p[j]);
             }
             
-            /* TCP ¤Î packet ¤À¤±ÆÉ¤à */
+            /* TCP ã® packet ã ã‘èª­ã‚€ */
             if( dgram->ip.ip_p == IPPROTO_TCP){
-                if(debug){ /* debug ÍÑ */ 
+                if(debug){ /* debug ç”¨ */ 
                     printf("==========================================\n");
                     printf("Packet:%d, Len:%d \n",plist_current->packet_number, plist_current->packet_len);
                     printf("EtherType: %x\n",ntohs(dgram->ether.ether_type));
@@ -601,7 +601,7 @@ read_packet()
                            dgram->ip.ip_dst._S_un._S_un_b.s_b3,dgram->ip.ip_dst._S_un._S_un_b.s_b4);
                 }
 			
-                /* tcp ¥Ø¥Ã¥À¤Î¥¢¥É¥ì¥¹¤ò·×»»¡£IP ¥Ø¥Ã¥À¤Î¥¢¥É¥ì¥¹¤Ë ip_hl x 4 byte ¤òÂ­¤¹ */ 	
+                /* tcp ãƒ˜ãƒƒãƒ€ã®ã‚¢ãƒ‰ãƒ¬ã‚¹ã‚’è¨ˆç®—ã€‚IP ãƒ˜ãƒƒãƒ€ã®ã‚¢ãƒ‰ãƒ¬ã‚¹ã« ip_hl x 4 byte ã‚’è¶³ã™ */ 	
                 tcphdr = (struct tcphdr *)((char *)&(dgram->ip) + ((dgram->ip.ip_hl)<<2) );
                 check_tcp_header(&(dgram->ip),tcphdr,plist_current);	
             }/* if proto == TCP */ 
@@ -610,9 +610,9 @@ read_packet()
             }
             printf("src = %s\n", inet_ntoa(dgram->ip.ip_src.s_addr));
             
-            /* UDP ¤Î packet ¤À¤±ÆÉ¤à */
+            /* UDP ã® packet ã ã‘èª­ã‚€ */
             if( dgram->ip.ip_p == IPPROTO_UDP){
-                /* UDP ¥Ø¥Ã¥À¤Î¥¢¥É¥ì¥¹¤ò·×»»¡£IP ¥Ø¥Ã¥À¤Î¥¢¥É¥ì¥¹¤Ë ip_hl x 4 byte ¤òÂ­¤¹ */ 	
+                /* UDP ãƒ˜ãƒƒãƒ€ã®ã‚¢ãƒ‰ãƒ¬ã‚¹ã‚’è¨ˆç®—ã€‚IP ãƒ˜ãƒƒãƒ€ã®ã‚¢ãƒ‰ãƒ¬ã‚¹ã« ip_hl x 4 byte ã‚’è¶³ã™ */ 	
                 udphdr = (struct udphdr *)((char *)&(dgram->ip) + ((dgram->ip.ip_hl)<<2) );
                 check_udp_header(&(dgram->ip),udphdr,plist_current);	
             }/* if proto == UDP */
@@ -628,7 +628,7 @@ read_conn_list()
     struct connection_t *conn;
 
     /*
-     * conn_head ¤Ï¶õ¤Ê¤Î¤Ç¡¢¼¡¤«¤é¡¦¡¦
+     * conn_head ã¯ç©ºãªã®ã§ã€æ¬¡ã‹ã‚‰ãƒ»ãƒ»
      */
     conn = conn_head->conn_next ;
     if(conn == NULL )
@@ -650,7 +650,7 @@ read_conn_list()
 int read_pair_list(){
 	struct udp_port_pair_t *pair;
 
-	/* pair_head ¤Ï¶õ¤Ê¤Î¤Ç¡¢¼¡¤«¤é¡¦¡¦*/
+	/* pair_head ã¯ç©ºãªã®ã§ã€æ¬¡ã‹ã‚‰ãƒ»ãƒ»*/
 	pair = pair_head->pair_next ;
 	if(pair == NULL )
 		return(0);
@@ -669,27 +669,27 @@ int read_pair_list(){
 }
 
 /*
- * tcp ¤Î¥Ç¡¼¥¿Éô¤è¤ê binary file ¤òºî¤ë
+ * tcp ã®ãƒ‡ãƒ¼ã‚¿éƒ¨ã‚ˆã‚Š binary file ã‚’ä½œã‚‹
  */ 
 int
 mkbin()
 { 
     struct connection_t *conn;
     struct stream_t *streams;
-    double stream_init_time;  /* connection Ëè¤Î³«»Ï»ş´Ö*/
-    double receive_time;      /* ¸Ä¡¹¤Î packet ¤ÎÅşÃå»ş´Ö */
-    double previous_time = 0; /* °ì¤ÄÁ°¤Î packet ¤ÎÅşÃå»ş´Ö */
-    FILE *fp0;           /* direction 0 ÍÑ¤Î file pointer */
-    FILE *fp1;           /* direction 1 ÍÑ¤Î file pointer */
-    char file0[30];      /* direction 0 ÍÑ¤Î file Ì¾ */
-    char file1[30];      /* direction 1 ÍÑ¤Î file Ì¾ */
-    char tcpdata0[1514]; /* direction 0 ÍÑ¤Î data buffer */
-    char tcpdata1[1514]; /* direction 1 ÍÑ¤Î data buffer */
-    int tcpdatalen0;     /* direction 0 ÍÑ tcp data ¤Î length*/
-    int tcpdatalen1;     /* direction 1 ÍÑ tcp data ¤Î length*/
+    double stream_init_time;  /* connection æ¯ã®é–‹å§‹æ™‚é–“*/
+    double receive_time;      /* å€‹ã€…ã® packet ã®åˆ°ç€æ™‚é–“ */
+    double previous_time = 0; /* ä¸€ã¤å‰ã® packet ã®åˆ°ç€æ™‚é–“ */
+    FILE *fp0;           /* direction 0 ç”¨ã® file pointer */
+    FILE *fp1;           /* direction 1 ç”¨ã® file pointer */
+    char file0[30];      /* direction 0 ç”¨ã® file å */
+    char file1[30];      /* direction 1 ç”¨ã® file å */
+    char tcpdata0[1514]; /* direction 0 ç”¨ã® data buffer */
+    char tcpdata1[1514]; /* direction 1 ç”¨ã® data buffer */
+    int tcpdatalen0;     /* direction 0 ç”¨ tcp data ã® length*/
+    int tcpdatalen1;     /* direction 1 ç”¨ tcp data ã® length*/
         
 
-    /* conn_head ¤Ï¶õ¤Ê¤Î¤Ç¡¢¼¡¤«¤é¡¦¡¦*/
+    /* conn_head ã¯ç©ºãªã®ã§ã€æ¬¡ã‹ã‚‰ãƒ»ãƒ»*/
     conn = conn_head->conn_next ;
     if(conn == NULL )
         return(0);
@@ -711,7 +711,7 @@ mkbin()
         printf("Addr 1: %d.%d.%d.%d : Port: %d\n",
                conn->addr1._S_un._S_un_b.s_b1,conn->addr1._S_un._S_un_b.s_b2,conn->addr1._S_un._S_un_b.s_b3,conn->addr1._S_un._S_un_b.s_b4,
                conn->port1);
-        /* file Ì¾¤ò¥»¥Ã¥È*/
+        /* file åã‚’ã‚»ãƒƒãƒˆ*/
         sprintf(file0,"%d.%d.%d.%d.%d-%d.%d.%d.%d.%d",conn->addr0._S_un._S_un_b.s_b1,conn->addr0._S_un._S_un_b.s_b2,
                 conn->addr0._S_un._S_un_b.s_b3,conn->addr0._S_un._S_un_b.s_b4,
                 conn->port0,conn->addr1._S_un._S_un_b.s_b1,conn->addr1._S_un._S_un_b.s_b2,
@@ -727,17 +727,17 @@ mkbin()
             perror("fopen");
         }
 
-        /* °Ê²¼ ¸Ä¡¹¤Î packet ¤Î½èÍı */
+        /* ä»¥ä¸‹ å€‹ã€…ã® packet ã®å‡¦ç† */
         for( streams = conn->stream ; streams != NULL ; streams = streams->stream_next){
             bzero((char *)tcpdata0,sizeof(tcpdata0));
             bzero((char *)tcpdata1,sizeof(tcpdata1));
 
             if(streams->direction){
-                /* ¤Ş¤º¡¢ip_len ¤È ip_hl ¤È th_offset ¤è¤ê¡¢packet Ãæ¤Î¥Ç¡¼¥¿Ä¹¤ò·×»»*/
+                /* ã¾ãšã€ip_len ã¨ ip_hl ã¨ th_offset ã‚ˆã‚Šã€packet ä¸­ã®ãƒ‡ãƒ¼ã‚¿é•·ã‚’è¨ˆç®—*/
                 tcpdatalen1 = TCPLEN(streams);
-                /* TCP header ¤Î address + header len ¤Î address ¤Î¥Ç¡¼¥¿ ¤ò°ì»ş buffer ¤Ë copy */
+                /* TCP header ã® address + header len ã® address ã®ãƒ‡ãƒ¼ã‚¿ ã‚’ä¸€æ™‚ buffer ã« copy */
                 memcpy(tcpdata1, (char *)streams->tcphdr + (streams->tcphdr->th_offset<<2), tcpdatalen1 );
-                /* ¥Õ¥¡¥¤¥ë¤Ë½ñ¤­¹ş¤ß */
+                /* ãƒ•ã‚¡ã‚¤ãƒ«ã«æ›¸ãè¾¼ã¿ */
                 fwrite(tcpdata1,sizeof(char), tcpdatalen1, fp1 );
             } else {
                 tcpdatalen0 = TCPLEN(streams);
@@ -754,9 +754,9 @@ mkbin()
 
 
 /*
- * connection ¥ê¥¹¥È³Æ¥Ñ¥±¥Ã¥È¤òÉ½¼¨¡£
- * ¥ª¥×¥·¥ç¥ó¥Õ¥é¥°¤Ë¤è¤Ã¤Æ¤ÏÄÌ¾ï½ĞÎÏ¤Ë²Ã¤¨¤Æ¡¢
- * sequence ÈÖ¹æ¥Á¥§¥Ã¥¯¤òÉ½¼¨
+ * connection ãƒªã‚¹ãƒˆå„ãƒ‘ã‚±ãƒƒãƒˆã‚’è¡¨ç¤ºã€‚
+ * ã‚ªãƒ—ã‚·ãƒ§ãƒ³ãƒ•ãƒ©ã‚°ã«ã‚ˆã£ã¦ã¯é€šå¸¸å‡ºåŠ›ã«åŠ ãˆã¦ã€
+ * sequence ç•ªå·ãƒã‚§ãƒƒã‚¯ã‚’è¡¨ç¤º
  */
 int
 view_conn(int optflag)
@@ -764,18 +764,18 @@ view_conn(int optflag)
     struct connection_t *conn;
     struct stream_t *streams;
     struct stream_t *streams_check;
-    uint32_t exp_ack; /* packet ¤¬´üÂÔ¤¹¤ë ACK ÃÍ */
-    uint32_t self_seq; /* Sefl packet SEQ ÃÍ */
-    uint32_t len; /* TCP ¤Î data ¤ÎÄ¹¤µ*/
-    double stream_init_time; /* connection Ëè¤Î³«»Ï»ş´Ö*/
-    double receive_time; /* ¸Ä¡¹¤Î packet ¤ÎÅşÃå»ş´Ö */
-    double previous_time = 0; /* °ì¤ÄÁ°¤Î packet ¤ÎÅşÃå»ş´Ö */
-    double acked_elapse ; /* ack ¤ò¼õ¤±¤ë¤Ş¤Ç¤Î»ş´Ö */
-    uint32_t next_seq[2];   /* Diag ÍÑ¤Î °ì¤ÄÁ°¤Î¥Ñ¥±¥Ã¥È¤Ş¤Ç¤Î SEQ ¤Î¿Ê¹Ô¾õ¶· */
+    uint32_t exp_ack; /* packet ãŒæœŸå¾…ã™ã‚‹ ACK å€¤ */
+    uint32_t self_seq; /* Sefl packet SEQ å€¤ */
+    uint32_t len; /* TCP ã® data ã®é•·ã•*/
+    double stream_init_time; /* connection æ¯ã®é–‹å§‹æ™‚é–“*/
+    double receive_time; /* å€‹ã€…ã® packet ã®åˆ°ç€æ™‚é–“ */
+    double previous_time = 0; /* ä¸€ã¤å‰ã® packet ã®åˆ°ç€æ™‚é–“ */
+    double acked_elapse ; /* ack ã‚’å—ã‘ã‚‹ã¾ã§ã®æ™‚é–“ */
+    uint32_t next_seq[2];   /* Diag ç”¨ã® ä¸€ã¤å‰ã®ãƒ‘ã‚±ãƒƒãƒˆã¾ã§ã® SEQ ã®é€²è¡ŒçŠ¶æ³ */
 
     
 
-        /* conn_head ¤Ï¶õ¤Ê¤Î¤Ç¡¢¼¡¤«¤é¡¦¡¦*/
+        /* conn_head ã¯ç©ºãªã®ã§ã€æ¬¡ã‹ã‚‰ãƒ»ãƒ»*/
     conn = conn_head->conn_next ;
     if(conn == NULL )
         return(0);
@@ -798,19 +798,19 @@ view_conn(int optflag)
         previous_time = stream_init_time;
 
         /*
-         * °Ê²¼ ¸Ä¡¹¤Î packet ¤Î½èÍı
+         * ä»¥ä¸‹ å€‹ã€…ã® packet ã®å‡¦ç†
          */
         for(streams = conn->stream ; streams != NULL ; streams = streams->stream_next ){
             receive_time = TIMEVAL_TO_SEC(streams->plist->php->pktime);
             INDENT(streams);
             /*
-             * °Ê²¼ summary É½¼¨Éô
+             * ä»¥ä¸‹ summary è¡¨ç¤ºéƒ¨
              */
             printf("%d: ",streams->plist->packet_number);
             printf("%5.3f ",receive_time - previous_time);
             if (ntohs(streams->ip->ip_off) & (8191)){
                 /*
-                 * fragment offset ¤¬ 0 °Ê³°¡Êfragment¤·¤Æ¤¤¤Æ¡¢TCP header ¤¬Ìµ¤¤) IP data gram ¤òÈ½Äê
+                 * fragment offset ãŒ 0 ä»¥å¤–ï¼ˆfragmentã—ã¦ã„ã¦ã€TCP header ãŒç„¡ã„) IP data gram ã‚’åˆ¤å®š
                  */
                 printf(" IP fragment");
                 printf(" IPID: %u",ntohs(streams->ip->ip_id));
@@ -824,7 +824,7 @@ view_conn(int optflag)
                 printf("\n");
             } else {
                 /*
-                 * IP fragment ¤·¤Æ¤¤¤Ê¤¤¡¢¤â¤·¤¯¤ÏºÇ½é¤Î fragment ¤Î tcp packet
+                 * IP fragment ã—ã¦ã„ãªã„ã€ã‚‚ã—ãã¯æœ€åˆã® fragment ã® tcp packet
                  */
                 printf("%u",  SEQ(streams));            
                 printf("(%u)", ACK(streams));            
@@ -857,11 +857,11 @@ view_conn(int optflag)
             if(!(optflag & DIAG))
                 continue;
             
-            /************** ¤³¤³¤«¤é¤Ï DIAG ¥Õ¥é¥°¤¬¤Ä¤¤¤Æ¤¤¤¿¾ì¹ç¤À¤± ******************/
+            /************** ã“ã“ã‹ã‚‰ã¯ DIAG ãƒ•ãƒ©ã‚°ãŒã¤ã„ã¦ã„ãŸå ´åˆã ã‘ ******************/
 
             /*
-             * more fragmen ¤¬Î©¤Ã¤Æ¤¤¤ë packet ¤Ï ack ¤ÎÄ´ºº¤ò¤·¤Ê¤¤                            
-             * ¤Ê¤¼¤Ê¤é¡¢fragment ¤ÎÅÓÃæ¤Ç¤Ï¡¡TCP segment ¤È¤·¤Æ¤Î total length ¤¬¤ï¤«¤é¤Ê¤¤¤Î¤Ç
+             * more fragmen ãŒç«‹ã£ã¦ã„ã‚‹ packet ã¯ ack ã®èª¿æŸ»ã‚’ã—ãªã„                            
+             * ãªãœãªã‚‰ã€fragment ã®é€”ä¸­ã§ã¯ã€€TCP segment ã¨ã—ã¦ã® total length ãŒã‚ã‹ã‚‰ãªã„ã®ã§
              */
             if (ntohs(streams->ip->ip_off) & IP_MF){
                 //INDENT(streams);
@@ -871,14 +871,14 @@ view_conn(int optflag)
             
             self_seq = SEQ(streams);
             /*
-             * len ¤Ï fragmen/non-fragment ¥Ñ¥±¥Ã¥ÈÁĞÊı¤Î ¥Ç¡¼¥¿Ä¹¤¬Æş¤ë
+             * len ã¯ fragmen/non-fragment ãƒ‘ã‚±ãƒƒãƒˆåŒæ–¹ã® ãƒ‡ãƒ¼ã‚¿é•·ãŒå…¥ã‚‹
              */
             len = TCPLEN(streams);
 
             /*
-             * SACK(Selective Ack) Option ¤Î³ÎÇ§
-             * TCP ¥Ø¥Ã¥À¡¼Ä¹¤¬ 5(=20bytes) ¤è¤êÂç¤­¤±¤ì¤Ğ¡¢¤Ê¤ó¤é¤«¤Î
-             * TCP Option ¤¬ÀßÄê¤µ¤ì¤Æ¤¤¤ë
+             * SACK(Selective Ack) Option ã®ç¢ºèª
+             * TCP ãƒ˜ãƒƒãƒ€ãƒ¼é•·ãŒ 5(=20bytes) ã‚ˆã‚Šå¤§ãã‘ã‚Œã°ã€ãªã‚“ã‚‰ã‹ã®
+             * TCP Option ãŒè¨­å®šã•ã‚Œã¦ã„ã‚‹
              */
 #ifdef SACK
             if(streams->tcphdr->th_offset > 5 ){
@@ -896,26 +896,26 @@ view_conn(int optflag)
                     tcpopt_head = tcpopt = (char *)streams->tcphdr + 20 ; 
                     while(*tcpopt != NULL && (tcpopt - tcpopt_head) < tcphdrlen - 20){
                         switch(*tcpopt){
-                            case 1: /* NOP¡£¼¡¤Îoption ¤Ø*/
+                            case 1: /* NOPã€‚æ¬¡ã®option ã¸*/
                                 tcpopt++; 
                                 if (debug) { INDENT(streams); printf("\t> NOP option found\n");}
                                 break;
                             case 4: /* SACK Permitted option */
-                                tcpopt = tcpopt + 2; /* SACK OK option ¼¡¤Î option ¤Ø */
+                                tcpopt = tcpopt + 2; /* SACK OK option æ¬¡ã® option ã¸ */
                                 INDENT(streams);                                                                
                                 printf("\t> sack-permitted option found\n");
                                 break;                                
                             case 5: /* SACK OPTION */{
                                 int i;
-                                char *pointer; /* ½èÍıÍÑ¤Î¥İ¥¤¥ó¥¿ */
+                                char *pointer; /* å‡¦ç†ç”¨ã®ãƒã‚¤ãƒ³ã‚¿ */
 
-                                pointer = tcpopt + 1 + 1; /* type ¤È lenght ¤ÎÊ¬¤ò¿Ê¤á¤ë*/
+                                pointer = tcpopt + 1 + 1; /* type ã¨ lenght ã®åˆ†ã‚’é€²ã‚ã‚‹*/
                                 optlen = *(uint8_t *)(tcpopt + 1);
                                 sackval = malloc(sizeof(struct sackval));
 
                                 /*
-                                 * Left edge ¤È Right edige ¤Î¥Ú¥¢(8bytes)¤¬·Ò¤¬¤Ã¤Æ¤¤¤ë¡£
-                                 * optlen -2 / 8 ²óÊ¬¤À¤±¥ë¡¼¥×
+                                 * Left edge ã¨ Right edige ã®ãƒšã‚¢(8bytes)ãŒç¹‹ãŒã£ã¦ã„ã‚‹ã€‚
+                                 * optlen -2 / 8 å›åˆ†ã ã‘ãƒ«ãƒ¼ãƒ—
                                  */
                                 for ( i = optlen - 2 ; i > 0 ; i = i - 8){
                                     memcpy(sackval, pointer, 8);
@@ -924,10 +924,10 @@ view_conn(int optflag)
                                     pointer = pointer + 8;
                                 }
                                 tcpopt = tcpopt + optlen;
-                                free(sackval); /* ¤â¤¦»È¤ï¤Ê¤¤¤Î¤Ç free */
+                                free(sackval); /* ã‚‚ã†ä½¿ã‚ãªã„ã®ã§ free */
                                 break;
                             }
-                            default : /* Â¾¤Î Option */
+                            default : /* ä»–ã® Option */
                                 if (debug){ INDENT(streams); printf("\t> TCP option found\n");}
                                 optlen = *(uint8_t *)(tcpopt + 1); 
                                 tcpopt = tcpopt + optlen; 
@@ -938,88 +938,88 @@ view_conn(int optflag)
 #endif /* SACK */
             
             /*
-             * ¼¡¤Ë¤¯¤ë¤È´üÂÔ¤µ¤ì¤Æ¤¤¤¿ SEQ ¤È¡¢¤³¤Î¥Ñ¥±¥Ã¥È¤Î SEQ ¤òÈæ³Ó
-             * ¤â¤·¡¢´üÂÔÃÍ¤è¤ê¤âÂç¤­¤±¤ì¤Ğ¡¢½çÈÖ¤¬Æş¤ìÂØ¤ï¤Ã¤¿¤«¡¢¤Ş¤¿¤Ï
-             * ¥Ñ¥±¥Ã¥È¤Î¥É¥í¥Ã¥×¤Î²ÄÇ½À­¤¬¤¢¤ë
+             * æ¬¡ã«ãã‚‹ã¨æœŸå¾…ã•ã‚Œã¦ã„ãŸ SEQ ã¨ã€ã“ã®ãƒ‘ã‚±ãƒƒãƒˆã® SEQ ã‚’æ¯”è¼ƒ
+             * ã‚‚ã—ã€æœŸå¾…å€¤ã‚ˆã‚Šã‚‚å¤§ãã‘ã‚Œã°ã€é †ç•ªãŒå…¥ã‚Œæ›¿ã‚ã£ãŸã‹ã€ã¾ãŸã¯
+             * ãƒ‘ã‚±ãƒƒãƒˆã®ãƒ‰ãƒ­ãƒƒãƒ—ã®å¯èƒ½æ€§ãŒã‚ã‚‹
              */
             if(conn->snd_nxt[streams->direction] == 0){
-                    /* ´üÂÔ¤¹¤ë SEQ(SND_NXT)¤¬ 0 ¤Ä¤Ş¤ê¤³¤³¤Ï snoop ¤Ç¤Î¤³¤Î TCP */
-                    /* connction ¤ÎºÇ½é¤Î packet ¤À¤±¤¬³ºÅö¤¹¤ë                  */
+                    /* æœŸå¾…ã™ã‚‹ SEQ(SND_NXT)ãŒ 0 ã¤ã¾ã‚Šã“ã“ã¯ snoop ã§ã®ã“ã® TCP */
+                    /* connction ã®æœ€åˆã® packet ã ã‘ãŒè©²å½“ã™ã‚‹                  */
                 conn->snd_nxt[streams->direction] =
                     SEQ(streams) + len + SYNFIN(streams);
             } else {
                 next_seq[streams->direction] = conn->snd_nxt[streams->direction];
                 if( next_seq[streams->direction] < SEQ(streams))
                 {
-                        /* ´üÂÔ¤·¤Æ¤¤¤ë¤è¤ê¡¢Âç¤­¤¤ SEQ ÈÖ¹æ¤¬¤­¤¿ */
+                        /* æœŸå¾…ã—ã¦ã„ã‚‹ã‚ˆã‚Šã€å¤§ãã„ SEQ ç•ªå·ãŒããŸ */
                     INDENT(streams);
                     printf("\t> out of order data packet. expected SEQ = %u\n",next_seq[streams->direction]);
                     
                 }
                 else if (next_seq[streams->direction] == SEQ(streams)){
-                    /* ´üÂÔÄÌ¤ê¤Î¥Ñ¥±¥Ã¥È¤¬Íè¤¿¡£snd_nxt ¤ò¹¹¿·                       */
+                    /* æœŸå¾…é€šã‚Šã®ãƒ‘ã‚±ãƒƒãƒˆãŒæ¥ãŸã€‚snd_nxt ã‚’æ›´æ–°                       */
                     conn->snd_nxt[streams->direction] = SEQ(streams) + len + SYNFIN(streams);
                 }
                 else{
-                        /* ´üÂÔÃÍ¤è¤ê¤â¾®¤µ¤¤ SEQ¡£ºÆÁ÷¡©*/
+                        /* æœŸå¾…å€¤ã‚ˆã‚Šã‚‚å°ã•ã„ SEQã€‚å†é€ï¼Ÿ*/
 
                     INDENT(streams);
                     printf("\t> retransmission packet?\n");
                 }
 
                 /*
-                 * ¤³¤ì¤è¤êÁ°¤Î packet ¤Ë SND_NXT ¤Î SEQ ¤¬´Ş¤Ş¤ì¤Æ¤¤¤ë¤«Ä´¤Ù¤ë & ºÆÁ÷¤Î¥Á¥§¥Ã¥¯
-                 * TODO:¤³¤³¤Ï¥Ç¡¼¥¿¤¬¤¢¤ëÁ´ packet ¤¬ÄÌ¤ë¤¿¤á¡¢ÂçÊÑÉé²Ù¤¬¹â¤¤¡£Í×²şÁ±
+                 * ã“ã‚Œã‚ˆã‚Šå‰ã® packet ã« SND_NXT ã® SEQ ãŒå«ã¾ã‚Œã¦ã„ã‚‹ã‹èª¿ã¹ã‚‹ & å†é€ã®ãƒã‚§ãƒƒã‚¯
+                 * TODO:ã“ã“ã¯ãƒ‡ãƒ¼ã‚¿ãŒã‚ã‚‹å…¨ packet ãŒé€šã‚‹ãŸã‚ã€å¤§å¤‰è² è·ãŒé«˜ã„ã€‚è¦æ”¹å–„
                  */
                 if( len > 0){
                     for(streams_check =  conn->stream ; streams_check != streams ; streams_check = streams_check->stream_next){
-                         /* Self packet ¤Î¤ß¤ò¥Á¥§¥Ã¥¯*/
+                         /* Self packet ã®ã¿ã‚’ãƒã‚§ãƒƒã‚¯*/
                         if (streams_check->direction != streams->direction) 
                             continue;
-                        /* last fragment(IP_MF ¤ÎÎ©¤Ã¤Æ¤Ê¤¤)¥Ñ¥±¥Ã¥È¤Î¤ß¤ò¥Á¥§¥Ã¥¯ */
+                        /* last fragment(IP_MF ã®ç«‹ã£ã¦ãªã„)ãƒ‘ã‚±ãƒƒãƒˆã®ã¿ã‚’ãƒã‚§ãƒƒã‚¯ */
                         if (ntohs(streams_check->ip->ip_off) & IP_MF) 
                             continue;
 
-                        /* ¥Ç¡¼¥¿¤¬¤¢¤Ã¤Æ¡¢SEQ ¤È SND_NXT ¤¬Æ±¤¸ packet ¤òÄ´¤Ù¤ë*/	
+                        /* ãƒ‡ãƒ¼ã‚¿ãŒã‚ã£ã¦ã€SEQ ã¨ SND_NXT ãŒåŒã˜ packet ã‚’èª¿ã¹ã‚‹*/	
                         if ( TCPLEN(streams_check) > 0 && SEQ(streams_check) == conn->snd_nxt[streams->direction]){
                             conn->snd_nxt[streams->direction] =
                                 SEQ(streams_check) + TCPLEN(streams_check)  + SYNFIN(streams_check);
                             INDENT(streams);
                             printf("\t> SEQ = %u was already sent by pakcet %d\n",
                                    SEQ(streams_check), streams_check->plist->packet_number);
-                                /* ¤Ş¤À¡¢Â¾¤Ë¤â¤¢¤ë¤«¤â¤·¤ì¤Ê¤¤¤Î¤Ç¡¢ºÇ½é¤«¤éÄ´¤ÙÄ¾¤¹¡£*/
+                                /* ã¾ã ã€ä»–ã«ã‚‚ã‚ã‚‹ã‹ã‚‚ã—ã‚Œãªã„ã®ã§ã€æœ€åˆã‹ã‚‰èª¿ã¹ç›´ã™ã€‚*/
                             streams_check = conn->stream;
                             continue;
                         }
-                        /* SEQ ¤¬Æ±¤¸¤Ç¡¢¥Ç¡¼¥¿¤ò»ı¤Ã¤Æ¤¤¤ë packet ¤òÄ´¤Ù¤ë*/	
+                        /* SEQ ãŒåŒã˜ã§ã€ãƒ‡ãƒ¼ã‚¿ã‚’æŒã£ã¦ã„ã‚‹ packet ã‚’èª¿ã¹ã‚‹*/	
                         if( (SEQ(streams_check) == self_seq) && (TCPLEN(streams_check) != 0)){
                             INDENT(streams);
                             printf("\t> may retransmission packet of packet%d\n",streams_check->plist->packet_number);
                         }
-                    } /* °ÊÁ°¤Î packet ¤Î¥Á¥§¥Ã¥¯¤Î¥ë¡¼¥×½ª¤ï¤ê*/
-                } /* ¤â¤·¥Ç¡¼¥¿¤¬¤¢¤Ã¤¿¤é¡¦¡¦*/
+                    } /* ä»¥å‰ã® packet ã®ãƒã‚§ãƒƒã‚¯ã®ãƒ«ãƒ¼ãƒ—çµ‚ã‚ã‚Š*/
+                } /* ã‚‚ã—ãƒ‡ãƒ¼ã‚¿ãŒã‚ã£ãŸã‚‰ãƒ»ãƒ»*/
                 
             }/* if SND_NXT == 0 else .. end */
 
             
-            if(streams->stream_next == NULL){ /* ¤Ä¤®¤Î packet ¤¬Ìµ¤¤*/
+            if(streams->stream_next == NULL){ /* ã¤ãã® packet ãŒç„¡ã„*/
                 INDENT(streams);
                 printf("\t> ...won't check ack packet. No more packets\n");
                 continue;
             }            
 
             /*
-             * ¤Ş¤º¡¢ACK ¤¬É¬Í×¤«¤É¤¦¤«¡Ê¥Ç¡¼¥¿Í­¤ê¡¢¤Ş¤¿¤Ï FIN or SYN)¤ò³ÎÇ§ 
-             * É¬Í×Ìµ¤±¤ì¤Ğ¡¢Â¾¤Î packet ¤òÄ´¤Ù¤Ê¤¤¡£É¬Í×¤Ê¤é¼¡¤Î for() ¥ë¡¼¥×¤Ø
+             * ã¾ãšã€ACK ãŒå¿…è¦ã‹ã©ã†ã‹ï¼ˆãƒ‡ãƒ¼ã‚¿æœ‰ã‚Šã€ã¾ãŸã¯ FIN or SYN)ã‚’ç¢ºèª 
+             * å¿…è¦ç„¡ã‘ã‚Œã°ã€ä»–ã® packet ã‚’èª¿ã¹ãªã„ã€‚å¿…è¦ãªã‚‰æ¬¡ã® for() ãƒ«ãƒ¼ãƒ—ã¸
              */
             if(len != 0){
                 /*
-                 * ¥Ç¡¼¥¿¤¬¤¢¤ë¾ì¹ç
+                 * ãƒ‡ãƒ¼ã‚¿ãŒã‚ã‚‹å ´åˆ
                  */
                 exp_ack = SEQ(streams) + len ;
                 if(*(streams->tcphdr->th_flags) & (TH_FIN | TH_SYN)){
                     /*
-                     * FIN or SYN ¤Î¾ì¹ç
+                     * FIN or SYN ã®å ´åˆ
                      */
                     exp_ack++;
                     if(debug){
@@ -1033,11 +1033,11 @@ view_conn(int optflag)
                 }
             } else {
                 /*
-                 * ¥Ç¡¼¥¿¤¬¤Ê¤¤¾ì¹ç
+                 * ãƒ‡ãƒ¼ã‚¿ãŒãªã„å ´åˆ
                  */                
                 if( *(streams->tcphdr->th_flags) & (TH_FIN | TH_SYN)){
                     /*
-                     * FIN or SYN ¤Î¾ì¹ç
+                     * FIN or SYN ã®å ´åˆ
                      */
                     exp_ack = SEQ(streams) + 1;
                     if(debug) {
@@ -1046,8 +1046,8 @@ view_conn(int optflag)
                     }
                 } else {
                     /*
-                     * ¤¿¤À¤Î ACK ¥Ñ¥±¥Ã¥È¡£
-                     * ¤Ê¤Î¤Ç¡¢°Ê²¼¤ÎACK ¤Î¥Á¥§¥Ã¥¯¤â¡¢ºÆÁ÷¤Î¥Á¥§¥Ã¥¯¤â¹Ô¤ï¤Ê¤¤
+                     * ãŸã ã® ACK ãƒ‘ã‚±ãƒƒãƒˆã€‚
+                     * ãªã®ã§ã€ä»¥ä¸‹ã®ACK ã®ãƒã‚§ãƒƒã‚¯ã‚‚ã€å†é€ã®ãƒã‚§ãƒƒã‚¯ã‚‚è¡Œã‚ãªã„
                      */
                     INDENT(streams);
                     printf("\t> doesn't expect to be acked\n");
@@ -1056,12 +1056,12 @@ view_conn(int optflag)
             }
 
             /*
-             * ¤³¤ì¤è¤ê¸å¤Î packet ¤«¤é´üÂÔ¤¹¤ë ACK ¤¬¤¢¤ë¤«¤É¤¦¤«¤ò¥Á¥§¥Ã¥¯
+             * ã“ã‚Œã‚ˆã‚Šå¾Œã® packet ã‹ã‚‰æœŸå¾…ã™ã‚‹ ACK ãŒã‚ã‚‹ã‹ã©ã†ã‹ã‚’ãƒã‚§ãƒƒã‚¯
              */
             for(streams_check = streams->stream_next ; streams_check != NULL ; streams_check = streams_check->stream_next){
                 
-                if (streams_check->direction == streams->direction){ /* Áê¼ê¤«¤é¤Î packet ¤Î¤ß¤ò¥Á¥§¥Ã¥¯*/
-                    if(streams_check->stream_next == NULL){ /* ¤â¤·¤³¤ì¤¬ºÇ¸å¤Î packet ¤Ê¤é ACK ¤µ¤ì¤Æ¤¤¤Ê¤¤¤È¸À¤¦¤³¤È*/
+                if (streams_check->direction == streams->direction){ /* ç›¸æ‰‹ã‹ã‚‰ã® packet ã®ã¿ã‚’ãƒã‚§ãƒƒã‚¯*/
+                    if(streams_check->stream_next == NULL){ /* ã‚‚ã—ã“ã‚ŒãŒæœ€å¾Œã® packet ãªã‚‰ ACK ã•ã‚Œã¦ã„ãªã„ã¨è¨€ã†ã“ã¨*/
                         INDENT(streams);                        
                         printf("\t> not acked!!!\n");
                     }
@@ -1069,8 +1069,8 @@ view_conn(int optflag)
                 }
                 
 
-                /* Áê¼ê¤«¤é¤Î packet ¤Î fragment ¤ÎÍ­Ìµ¤ò¥Á¥§¥Ã¥¯¤¹¤ëÉ¬Í×¤ÏÌµ¤¤¡£*/
-                    /* ´üÂÔ¤¹¤ë ack ¤ò¤â¤Ä packet ¤òÄ´¤Ù¤ë*/	
+                /* ç›¸æ‰‹ã‹ã‚‰ã® packet ã® fragment ã®æœ‰ç„¡ã‚’ãƒã‚§ãƒƒã‚¯ã™ã‚‹å¿…è¦ã¯ç„¡ã„ã€‚*/
+                    /* æœŸå¾…ã™ã‚‹ ack ã‚’ã‚‚ã¤ packet ã‚’èª¿ã¹ã‚‹*/	
                 if( ACK(streams_check) == exp_ack ){
                     acked_elapse = TIMEVAL_TO_SEC(streams_check->plist->php->pktime);
                     INDENT(streams);
@@ -1085,7 +1085,7 @@ view_conn(int optflag)
                     break;
                 }
 
-                if(streams_check->stream_next == NULL){ /* ºÇ¸å¤Ş¤ÇÍè¤¿¤é ACK ¤µ¤ì¤Æ¤¤¤Ê¤¤¤È¸À¤¦¤³¤È*/
+                if(streams_check->stream_next == NULL){ /* æœ€å¾Œã¾ã§æ¥ãŸã‚‰ ACK ã•ã‚Œã¦ã„ãªã„ã¨è¨€ã†ã“ã¨*/
                     INDENT(streams);
                     printf("\t> not acked!!!\n");
                 }
@@ -1097,17 +1097,17 @@ view_conn(int optflag)
 }
 
 
-/* UDP port pair ¥ê¥¹¥È³Æ¥Ñ¥±¥Ã¥È¤òÉ½¼¨¡£*/
+/* UDP port pair ãƒªã‚¹ãƒˆå„ãƒ‘ã‚±ãƒƒãƒˆã‚’è¡¨ç¤ºã€‚*/
 int view_pair(int optflag){ 
     struct udp_port_pair_t *pair;
     struct udp_stream_t *udp_streams;
     struct udp_stream_t *udp_streams_check;
-    double udp_stream_init_time; /* UDP port pair Ëè¤Î³«»Ï»ş´Ö*/
-    double receive_time; /* ¸Ä¡¹¤Î packet ¤ÎÅşÃå»ş´Ö */
-    double previous_time = 0; /* °ì¤ÄÁ°¤Î packet ¤ÎÅşÃå»ş´Ö */
+    double udp_stream_init_time; /* UDP port pair æ¯ã®é–‹å§‹æ™‚é–“*/
+    double receive_time; /* å€‹ã€…ã® packet ã®åˆ°ç€æ™‚é–“ */
+    double previous_time = 0; /* ä¸€ã¤å‰ã® packet ã®åˆ°ç€æ™‚é–“ */
     
 
-        /* pair_head ¤Ï¶õ¤Ê¤Î¤Ç¡¢¼¡¤«¤é¡¦¡¦*/
+        /* pair_head ã¯ç©ºãªã®ã§ã€æ¬¡ã‹ã‚‰ãƒ»ãƒ»*/
     pair = pair_head->pair_next ;
     if(pair == NULL )
         return(0);
@@ -1129,14 +1129,14 @@ int view_pair(int optflag){
         udp_stream_init_time = TIMEVAL_TO_SEC(pair->udp_stream->plist->php->pktime);
         previous_time = udp_stream_init_time;
 
-            /* °Ê²¼ ¸Ä¡¹¤Î packet ¤Î½èÍı */
+            /* ä»¥ä¸‹ å€‹ã€…ã® packet ã®å‡¦ç† */
         for(udp_streams = pair->udp_stream ; udp_streams != NULL ; udp_streams = udp_streams->udp_stream_next ){
 
             receive_time = TIMEVAL_TO_SEC(udp_streams->plist->php->pktime);
 
             INDENT(udp_streams);
             
-                /* °Ê²¼ summary É½¼¨Éô */
+                /* ä»¥ä¸‹ summary è¡¨ç¤ºéƒ¨ */
             printf("%d: ",udp_streams->plist->packet_number);
             printf("%5.3f ",receive_time - previous_time);
             printf(" IPID: %u",ntohs(udp_streams->ip->ip_id));
@@ -1161,9 +1161,9 @@ int view_pair(int optflag){
 
 
 /*
- * ether header ¤Î type ¥Õ¥£¡¼¥ë¥É¤òÆÉ¤ó¤Ç¡¢type ¤ò¼±ÊÌ¡£
- * IP ¤Î»ş¤À¤± 1 ¤òÊÖ¤¹
- * ¤Ş¤¿¡¢802.3 ¥Õ¥ì¡¼¥à¤Î¾ì¹ç¤Ï¡¦¡¦¡¦ÊÌ½èÍı¤Ø¡ÊÌ¤¼ÂÁõ¡Ë
+ * ether header ã® type ãƒ•ã‚£ãƒ¼ãƒ«ãƒ‰ã‚’èª­ã‚“ã§ã€type ã‚’è­˜åˆ¥ã€‚
+ * IP ã®æ™‚ã ã‘ 1 ã‚’è¿”ã™
+ * ã¾ãŸã€802.3 ãƒ•ãƒ¬ãƒ¼ãƒ ã®å ´åˆã¯ãƒ»ãƒ»ãƒ»åˆ¥å‡¦ç†ã¸ï¼ˆæœªå®Ÿè£…ï¼‰
  */
 int check_ethertype(int type)
 {
@@ -1237,7 +1237,7 @@ main(int argc, char *argv[])
 	}
 
 	/*
-	 * snoop ¥Õ¥¡¥¤¥ë¤ò open É¬¿Ü
+	 * snoop ãƒ•ã‚¡ã‚¤ãƒ«ã‚’ open å¿…é ˆ
 	 */
 	if(argc == 3)
 		file_name = argv[2];
@@ -1251,7 +1251,7 @@ main(int argc, char *argv[])
 
 
 	/*
-	 * packet ¿ô(count)¤òÆÀ¤ë É¬¿Ü
+	 * packet æ•°(count)ã‚’å¾—ã‚‹ å¿…é ˆ
 	 */
 	if (sn_count() < 0){
 		perror("sn_count()");
@@ -1260,7 +1260,7 @@ main(int argc, char *argv[])
 
 	
 	/*
-	 * packet ¤Î¥ê¥¹¥È(plist_head)¤òÆÀ¤ë É¬¿Ü
+	 * packet ã®ãƒªã‚¹ãƒˆ(plist_head)ã‚’å¾—ã‚‹ å¿…é ˆ
 	 */
 	if ( get_plist() < 0){
 		perror("get_plist()");
@@ -1268,7 +1268,7 @@ main(int argc, char *argv[])
 	}
 
 	/*
-	 * packet ¤òÆÉ¤à É¬¿Ü
+	 * packet ã‚’èª­ã‚€ å¿…é ˆ
 	 */
 	if ( read_packet() < 0){
 		perror("read_packet()");
@@ -1277,7 +1277,7 @@ main(int argc, char *argv[])
 
 	/*
 	 *  connection list 
-	 *  ¤È udp port pair list ¤ò¸«¤ë ¥ª¥×¥·¥ç¥ó
+	 *  ã¨ udp port pair list ã‚’è¦‹ã‚‹ ã‚ªãƒ—ã‚·ãƒ§ãƒ³
          */
 	if(optflag & LIST){
 		if ( read_conn_list() <0 ) { 
@@ -1292,8 +1292,8 @@ main(int argc, char *argv[])
 	}
 
 	/*
-	 *  ³Æ connection ¤Î packet ¤ÎÎ®¤ì¤òÉ½¼¨ ¥ª¥×¥·¥ç¥ó
-	 *  ÄÉ²Ã¥ª¥×¥·¥ç¥ó¤Ë¤è¤Ã¤Æ¡¢packet ¤Î ack ¤ò³ÎÇ§Åù¤ò¹Ô¤¦
+	 *  å„ connection ã® packet ã®æµã‚Œã‚’è¡¨ç¤º ã‚ªãƒ—ã‚·ãƒ§ãƒ³
+	 *  è¿½åŠ ã‚ªãƒ—ã‚·ãƒ§ãƒ³ã«ã‚ˆã£ã¦ã€packet ã® ack ã‚’ç¢ºèªç­‰ã‚’è¡Œã†
          */
 	if(optflag & (VIEW|DIAG)){
 		if ( view_conn(optflag) < 0 ) { 
@@ -1303,8 +1303,8 @@ main(int argc, char *argv[])
 	}
         
 	/*
-	 *  ³Æ UDP port pair ¤Î packet ¤ÎÎ®¤ì¤òÉ½¼¨ ¥ª¥×¥·¥ç¥ó
-	 *  ÄÉ²Ã¥ª¥×¥·¥ç¥ó¤Ï¤Ş¤ÀÌ¤¼ÂÁõ
+	 *  å„ UDP port pair ã® packet ã®æµã‚Œã‚’è¡¨ç¤º ã‚ªãƒ—ã‚·ãƒ§ãƒ³
+	 *  è¿½åŠ ã‚ªãƒ—ã‚·ãƒ§ãƒ³ã¯ã¾ã æœªå®Ÿè£…
          */
 	if(optflag & (VIEWUDP)){
 		if ( view_pair(optflag) < 0 ) { 
@@ -1314,8 +1314,8 @@ main(int argc, char *argv[])
 	}        
 
 	/*
-	 *  ³Æ connection ¤Î ³ÆÊı¸şËè¤Î TCP ¤Î data Éô¤ò¥Õ¥¡¥¤¥ë¤È¤·¤ÆÊİÂ¸¡£
-	 *  file Ì¾ ¤Ï <src IP>.<src port>-<dest IP>.<dest port>
+	 *  å„ connection ã® å„æ–¹å‘æ¯ã® TCP ã® data éƒ¨ã‚’ãƒ•ã‚¡ã‚¤ãƒ«ã¨ã—ã¦ä¿å­˜ã€‚
+	 *  file å ã¯ <src IP>.<src port>-<dest IP>.<dest port>
          */
 	if(optflag & BIN){
 		if ( mkbin() <0 ) { 
