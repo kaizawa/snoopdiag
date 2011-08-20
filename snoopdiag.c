@@ -50,6 +50,7 @@
 #include <netinet/in_systm.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
+#include <netinet/udp.h>
 #include <sys/dlpi.h>
 #include <arpa/inet.h>
 
@@ -102,42 +103,36 @@
  */
 #define TIMEVAL_TO_SEC(pktime) ntohl(pktime.tv_sec) + (ntohl(pktime.tv_usec) / 1.0e+6)
 
-typedef struct udphdr {
-        uint16_t       uh_sport;               /* source port */
-        uint16_t       uh_dport;               /* destination port */
-        uint16_t        uh_ulen;               /* udp length */
-        uint16_t        uh_sum;                /* udp checksum */
-}udphdr;
+/*
+ * 各 connection 内の Packet の plist のアドレスを格納した構造体
+ */
+typedef struct stream stream_t;
+struct stream {
+    stream_t *stream_first;  /* connection の最初の stream_t 構造体 */ 
+    stream_t *stream_next;   /* 次の packet の stream_t 構造体 */
+    struct plist *plist;     /* plist 構造体へのポインタ */
+    struct ip *ip;           /* IP ヘッダのポインタ */
+    struct tcphdr *tcphdr;   /* TCP ヘッダのポインタ */
+    int    direction;        /* 処理上 0 or 1 で packet の送信方向を特定する */ 
+};
 
 /*
  * TCP の 1 connection 毎の構造体
  */
-struct connection_t{
-    struct connection_t *conn_head; /* connection list の先頭　*/
-    struct connection_t *conn_next; /* connection list の 次の構造体 */
+typedef struct connection connection_t;
+struct connection {
+    connection_t *conn_head; /* connection list の先頭　*/
+    connection_t *conn_next; /* connection list の 次の構造体 */
     struct in_addr addr0;               /* connection の 片側の IP */
     struct in_addr addr1;               /* connection の もう片側の IP */
     uint16_t port0;                 /* connection の 片側の port */
     uint16_t port1;                 /* connection の もう片側の port */
     int conn_count;                 /* この connection の Packet 数 */
-    struct stream_t *stream;        /* この connection の最初のPacketの stream_t 構造体へのポインタ*/ 
-    struct stream_t *stream_last;   /* この connection の最後Packetの stream_t 構造体へのポインタ*/
+    stream_t *stream;        /* この connection の最初のPacketの stream_t 構造体へのポインタ*/ 
+    stream_t *stream_last;   /* この connection の最後Packetの stream_t 構造体へのポインタ*/
     uint32_t snd_nxt[2] ;           /* Diag 時用の SEQ の進行状況。双方向に用意*/
-
-}; 
-struct connection_t *conn_current, *conn_write, *conn_head;
-
-/*
- * 各 connection 内の Packet の plist のアドレスを格納した構造体
- */
-struct stream_t{
-	struct stream_t *stream_first;  /* connection の最初の stream_t 構造体 */ 
-	struct stream_t *stream_next;   /* 次の packet の stream_t 構造体 */
-	struct plist *plist;            /* plist 構造体へのポインタ */
-	struct ip *ip;            /* IP ヘッダのポインタ */
-        struct tcphdr *tcphdr;          /* TCP ヘッダのポインタ */
-	int    direction;               /* 処理上 0 or 1 で packet の送信方向を特定する */ 
 };
+connection_t *conn_current, *conn_write, *conn_head;
 
 /*
  * UDP の port ペア 毎の構造体
@@ -473,8 +468,8 @@ int
 check_tcp_header(struct ip *ip, struct tcphdr *tcphdr, struct plist *plist)
 {
     int i;
-    struct connection_t *conn;
-    struct stream_t *streams;
+    connection_t *conn;
+    stream_t *streams;
 
     
 
@@ -511,7 +506,7 @@ check_tcp_header(struct ip *ip, struct tcphdr *tcphdr, struct plist *plist)
 
         if (ip->ip_src.s_addr == conn->addr0.s_addr && (ntohs(tcphdr->th_sport) == conn->port0) ){
             if  ( ip->ip_dst.s_addr == conn->addr1.s_addr && (ntohs(tcphdr->th_dport) == conn->port1) ){
-                streams = malloc(sizeof(struct stream_t)); 
+                streams = malloc(sizeof(stream_t)); 
                 conn->stream_last->stream_next = streams;
                 conn->stream_last = streams;
                 streams->stream_next = NULL;
@@ -524,7 +519,7 @@ check_tcp_header(struct ip *ip, struct tcphdr *tcphdr, struct plist *plist)
             }
         } else if (ip->ip_src.s_addr == conn->addr1.s_addr && (ntohs(tcphdr->th_sport) == conn->port1) ){
             if  (ip->ip_dst.s_addr == conn->addr0.s_addr && (ntohs(tcphdr->th_dport) == conn->port0) ){
-                streams = malloc(sizeof(struct stream_t)); 
+                streams = malloc(sizeof(stream_t)); 
                 conn->stream_last->stream_next = streams;
                 conn->stream_last = streams;
                 streams->stream_next = NULL;
@@ -544,7 +539,7 @@ check_tcp_header(struct ip *ip, struct tcphdr *tcphdr, struct plist *plist)
     }
 
     /* リストに既存の connection が無いので新規にリストに追加 */
-    conn_write = malloc(sizeof(struct connection_t));
+    conn_write = malloc(sizeof(connection_t));
     conn_current->conn_next = conn_write;
     conn_write->addr0.s_addr = ip->ip_src.s_addr;
     conn_write->addr1.s_addr = ip->ip_dst.s_addr;
@@ -555,7 +550,7 @@ check_tcp_header(struct ip *ip, struct tcphdr *tcphdr, struct plist *plist)
     conn_write->conn_count++;
     conn_write->snd_nxt[0] = 0;
     conn_write->snd_nxt[1] = 0;                
-    conn_write->stream = malloc(sizeof(struct stream_t)); 
+    conn_write->stream = malloc(sizeof(stream_t)); 
     conn_write->stream_last = conn_write->stream;
     conn_write->stream->stream_first = conn_write->stream;
     conn_write->stream->stream_next = NULL;
@@ -678,7 +673,7 @@ read_packet()
     struct     plist *plist_current; /* 処理用の packet list 構造体 */
     uchar_t    *p;
 
-    conn_current = malloc(sizeof(struct connection_t));
+    conn_current = malloc(sizeof(connection_t));
     conn_head = conn_current;
         
     pair_current = malloc(sizeof(struct udp_port_pair_t));
@@ -748,7 +743,7 @@ read_packet()
 int
 read_conn_list()
 {
-    struct connection_t *conn;
+    connection_t *conn;
     int cnt = 0;
 
     /*
@@ -797,8 +792,8 @@ read_pair_list()
 int
 mkbin()
 { 
-    struct connection_t *conn;
-    struct stream_t *streams;
+    connection_t *conn;
+    stream_t *streams;
     double stream_init_time;  /* connection 毎の開始時間*/
     double receive_time;      /* 個々の packet の到着時間 */
     double previous_time = 0; /* 一つ前の packet の到着時間 */
@@ -869,9 +864,9 @@ mkbin()
 int
 view_conn()
 { 
-    struct connection_t *conn;
-    struct stream_t *streams;
-    struct stream_t *streams_check;
+    connection_t *conn;
+    stream_t *streams;
+    stream_t *streams_check;
     uint32_t exp_ack; /* packet が期待する ACK 値 */
     uint32_t self_seq; /* Sefl packet SEQ 値 */
     uint32_t len; /* TCP の data の長さ*/
