@@ -398,9 +398,6 @@ check_tcp_header(struct ip *ip, struct tcphdr *tcphdr, struct plist *plist)
             }
         }
 
-        printf("ip->ip_src.s_addr=%X, conn->addr0.s_addr=%X\n", ip->ip_src.s_addr, conn->addr0.s_addr); //here
-        printf("ntohs(tcphdr->th_sport)=%d, conn->port0=%d\n", ntohs(tcphdr->th_sport),conn->port0);
-        
         if (ip->ip_src.s_addr == conn->addr0.s_addr && (ntohs(tcphdr->th_sport) == conn->port0) ){
             if  ( ip->ip_dst.s_addr == conn->addr1.s_addr && (ntohs(tcphdr->th_dport) == conn->port1) ){
                 streams = malloc(sizeof(struct stream_t)); 
@@ -626,6 +623,7 @@ int
 read_conn_list()
 {
     struct connection_t *conn;
+    int cnt = 0;
 
     /*
      * conn_head は空なので、次から・・
@@ -641,8 +639,10 @@ read_conn_list()
         printf("addr 0: %s : Port: %hu\n",inet_ntoa(conn->addr0),conn->port0);
         printf("addr 1: %s : Port: %hu\n",inet_ntoa(conn->addr1),conn->port1);	        
         printf("Number of packets  : %d\n", conn->conn_count);
+        cnt++;
     }
-
+    printf("\nNumber of connections : %d\n", cnt);
+    return(0);
 }
 
 int read_pair_list(){
@@ -684,12 +684,10 @@ mkbin()
     int tcpdatalen0;     /* direction 0 用 tcp data の length*/
     int tcpdatalen1;     /* direction 1 用 tcp data の length*/
         
-
     /* conn_head は空なので、次から・・*/
     conn = conn_head->conn_next ;
     if(conn == NULL )
         return(0);
-
 
     printf("\n====================================\n");
     printf("     Make binary file from tcp data                   \n");
@@ -730,8 +728,6 @@ mkbin()
                 memcpy(tcpdata0, (char *)streams->tcphdr + (streams->tcphdr->th_offset<<2) ,tcpdatalen0 );
                 fwrite(tcpdata0,sizeof(char), tcpdatalen0, fp0 );
             }
-				
-
         }
         fclose(fp0);
         fclose(fp1);
@@ -758,7 +754,7 @@ view_conn(int optflag)
     double previous_time = 0; /* 一つ前の packet の到着時間 */
     double acked_elapse ; /* ack を受けるまでの時間 */
     uint32_t next_seq[2];   /* Diag 用の 一つ前のパケットまでの SEQ の進行状況 */
-
+    
     /* conn_head は空なので、次から・・*/
     conn = conn_head->conn_next ;
     if(conn == NULL )
@@ -1040,7 +1036,6 @@ view_conn(int optflag)
              * これより後の packet から期待する ACK があるかどうかをチェック
              */
             for(streams_check = streams->stream_next ; streams_check != NULL ; streams_check = streams_check->stream_next){
-                
                 if (streams_check->direction == streams->direction){ /* 相手からの packet のみをチェック*/
                     if(streams_check->stream_next == NULL){ /* もしこれが最後の packet なら ACK されていないと言うこと*/
                         INDENT(streams);                        
@@ -1048,10 +1043,9 @@ view_conn(int optflag)
                     }
                     continue;
                 }
-                
 
                 /* 相手からの packet の fragment の有無をチェックする必要は無い。*/
-                    /* 期待する ack をもつ packet を調べる*/	
+                /* 期待する ack をもつ packet を調べる*/	
                 if( ACK(streams_check) == exp_ack ){
                     acked_elapse = TIMEVAL_TO_SEC(streams_check->plist->php->pktime);
                     INDENT(streams);
@@ -1070,8 +1064,6 @@ view_conn(int optflag)
                     INDENT(streams);
                     printf("\t> not acked!!!\n");
                 }
-                
-				
             } /* loop for searching ack end */
         } /* loop for stream end */
     } /* loop for connection list end */
