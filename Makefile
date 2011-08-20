@@ -1,4 +1,4 @@
-CC = cc
+CC = gcc
 PRODUCTS = snoopdiag 
 ECHO = /bin/echo
 CP = /bin/cp
