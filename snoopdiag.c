@@ -671,7 +671,7 @@ read_packet()
     struct     udphdr *udphdr;
     uint32_t     iplen; /* calcurated ip length including ip header and payload */
     struct     plist *plist_current; /* 処理用の packet list 構造体 */
-    u_int8_t    *p;
+    unsigned char    *p;
 
     conn_current = malloc(sizeof(connection_t));
     conn_head = conn_current;
@@ -697,7 +697,7 @@ read_packet()
             /* TCP の packet だけ読む */
             if( ip->ip_p == IPPROTO_TCP){
                 /* tcp ヘッダのアドレスを計算。IP ヘッダのアドレスに ip_hl x 4 byte を足す */ 	
-                tcphdr = (struct tcphdr *)((u_int8_t *)ip + ((ip->ip_hl)<<2));
+                tcphdr = (struct tcphdr *)((unsigned char *)ip + ((ip->ip_hl)<<2));
                 if(optflag & VERBOSE){ /* 冗長出力用 */ 
                     printf("==========================================\n");
                     printf("Packet:%d, Len:%d \n",plist_current->packet_number, plist_current->packet_len);
@@ -714,7 +714,7 @@ read_packet()
                     printf("ack         : %u\n", ntohl(tcphdr->th_ack));                    
                     printf("win         : %hu\n", ntohs(tcphdr->th_win));
 
-                    p = (u_int8_t *)ip;
+                    p = (unsigned char *)ip;
                     printf(" ");                    
                     for(j = 0 ; j < iplen ; j++){
                         printf("%02x", p[j]);
