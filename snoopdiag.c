@@ -22,6 +22,7 @@
 #include <net/if.h>
 #include <netinet/if_ether.h>
 #include <netinet/in_systm.h>
+//#include <netinet/ip.h>
 //#include <netinet/tcp.h>
 #include <sys/dlpi.h>
 
@@ -44,21 +45,21 @@
 /*
  * TCP のデータ長を得る。Fragment Packet の場合は IP のデータ長を返す
  */ 
-#define TCPLEN(stream)  ntohs(stream->iphdr->ip_off) & (8191) ? TCPFRAGMENTLEN(stream) : TCPNONFRAGMENTLEN(stream) 
-#define TCPNONFRAGMENTLEN(stream) ntohs(stream->iphdr->ip_len) - (stream->iphdr->ip_hl<<2) - (stream->tcphdr->th_offset<<2)
-#define TCPFRAGMENTLEN(stream) ((ntohs(stream->iphdr->ip_off) & (8191))<<3) + IPLEN(stream) - (stream->iphdr->ip_hl<<2)
+#define TCPLEN(stream)  ntohs(stream->ip->ip_off) & (8191) ? TCPFRAGMENTLEN(stream) : TCPNONFRAGMENTLEN(stream) 
+#define TCPNONFRAGMENTLEN(stream) ntohs(stream->ip->ip_len) - (stream->ip->ip_hl<<2) - (stream->tcphdr->th_offset<<2)
+#define TCPFRAGMENTLEN(stream) ((ntohs(stream->ip->ip_off) & (8191))<<3) + IPLEN(stream) - (stream->ip->ip_hl<<2)
 
 /*
  * UDP のデータ長を得る。Fragment Packet の場合は IP のデータ長を返す
  */ 
-#define UDPLEN(stream) (ntohs(stream->iphdr->ip_off) & (8191) ? UDPFRAGMENTLEN(stream) : UDPNONFRAGMENTLEN(stream))
-#define UDPNONFRAGMENTLEN(stream) (ntohs(stream->iphdr->ip_len) - (stream->iphdr->ip_hl<<2) - 8)
+#define UDPLEN(stream) (ntohs(stream->ip->ip_off) & (8191) ? UDPFRAGMENTLEN(stream) : UDPNONFRAGMENTLEN(stream))
+#define UDPNONFRAGMENTLEN(stream) (ntohs(stream->ip->ip_len) - (stream->ip->ip_hl<<2) - 8)
 #define UDPFRAGMENTLEN(stream) (IPLEN(stream))
 
 /*
  * IP のデータ長を得る
  */
-#define IPLEN(stream)  ntohs(stream->iphdr->ip_len) - (stream->iphdr->ip_hl<<2)
+#define IPLEN(stream)  ntohs(stream->ip->ip_len) - (stream->ip->ip_hl<<2)
 
 /*
  * Packet の方向によって出力表示位置（右or左）を変えるためのマクロ
@@ -87,22 +88,22 @@ struct  etherhdr {
 /*
  * IP ヘッダー
  */ 
-struct iphdr {
-        uchar_t ip_hl:4,                /* header length */
-                ip_v:4;                 /* version */
-        uchar_t ip_tos;                 /* type of service */
-        short   ip_len;                 /* total length */
-        ushort_t ip_id;                 /* identification */
-        short   ip_off;                 /* fragment offset field */
+struct ip {
+    uchar_t ip_hl:4,                /* header length */
+        ip_v:4;                 /* version */
+    uchar_t ip_tos;                 /* type of service */
+    short   ip_len;                 /* total length */
+    ushort_t ip_id;                 /* identification */
+    short   ip_off;                 /* fragment offset field */
 #define IP_DF 0x4000                    /* dont fragment flag */
 #define IP_MF 0x2000                    /* more fragments flag */
-        uchar_t ip_ttl;                 /* time to live */
-        uchar_t ip_p;                   /* protocol */
-        ushort_t ip_sum;                /* checksum */
-       /* 本来 IP address は以下の宣言で良さそうだが、2byte ずれてしまう・・*/
-       /* struct  in_addr ip_src, ip_dst;   source and dest address ・・のでこうした */
-	uchar_t ip_src[4];
-	uchar_t ip_dst[4];
+    uchar_t ip_ttl;                 /* time to live */
+    uchar_t ip_p;                   /* protocol */
+    ushort_t ip_sum;                /* checksum */
+    /* 本来 IP address は以下の宣言で良さそうだが、2byte ずれてしまう・・*/
+    struct  in_addr ip_src, ip_dst;    /* source and dest address */
+    //uchar_t ip_src[4];
+    //uchar_t ip_dst[4];
 };
 
 /*
@@ -141,15 +142,17 @@ typedef struct udphdr {
 struct dgram
 {
 	struct etherhdr ether;
-	struct iphdr    ip;
+	struct ip    ip;
 } ;
 
-/* TCP の 1 connection 毎の構造体  */
+/*
+ * TCP の 1 connection 毎の構造体
+ */
 struct connection_t{
     struct connection_t *conn_head; /* connection list の先頭　*/
     struct connection_t *conn_next; /* connection list の 次の構造体 */
-    uchar_t addr0[4];               /* connection の 片側の IP */
-    uchar_t addr1[4];               /* connection の もう片側の IP */
+    struct in_addr addr0;               /* connection の 片側の IP */
+    struct in_addr addr1;               /* connection の もう片側の IP */
     uint16_t port0;                 /* connection の 片側の port */
     uint16_t port1;                 /* connection の もう片側の port */
     int conn_count;                 /* この connection の Packet 数 */
@@ -160,22 +163,26 @@ struct connection_t{
 }; 
 struct connection_t *conn_current, *conn_write, *conn_head;
 
-/* 各 connection 内の Packet の plist のアドレスを格納した構造体 */
+/*
+ * 各 connection 内の Packet の plist のアドレスを格納した構造体
+ */
 struct stream_t{
 	struct stream_t *stream_first;  /* connection の最初の stream_t 構造体 */ 
 	struct stream_t *stream_next;   /* 次の packet の stream_t 構造体 */
 	struct plist *plist;            /* plist 構造体へのポインタ */
-	struct iphdr *iphdr;            /* IP ヘッダのポインタ */
+	struct ip *ip;            /* IP ヘッダのポインタ */
         struct tcphdr *tcphdr;          /* TCP ヘッダのポインタ */
 	int    direction;               /* 処理上 0 or 1 で packet の送信方向を特定する */ 
 };
 
-/* UDP の port ペア 毎の構造体  */
+/*
+ * UDP の port ペア 毎の構造体
+ */
 struct udp_port_pair_t{
     struct udp_port_pair_t *pair_head; /* udp port pair list の先頭　*/
     struct udp_port_pair_t *pair_next; /* udp port pair list の 次の構造体 */
-    uchar_t addr0[4];               /* udp port pair の 片側の IP */
-    uchar_t addr1[4];               /* udp port pair の もう片側の IP */
+    struct in_addr addr0;               /* udp port pair の 片側の IP */
+    struct in_addr addr1;               /* udp port pair の もう片側の IP */
     uint16_t port0;                 /* udp port pair の 片側の port */
     uint16_t port1;                 /* udp port pair の もう片側の port */
     int pair_count;                 /* この udp port pair の Packet 数 */
@@ -184,12 +191,14 @@ struct udp_port_pair_t{
 }; 
 struct udp_port_pair_t *pair_current, *pair_write, *pair_head;
 
-/* 各 udp port pair 内の Packet の plist のアドレスを格納した構造体 */
+/*
+ * 各 udp port pair 内の Packet の plist のアドレスを格納した構造体
+ */
 struct udp_stream_t{
 	struct udp_stream_t *udp_stream_first;  /* udp port pair の最初の udp_stream_t 構造体 */ 
 	struct udp_stream_t *udp_stream_next;   /* 次の packet の udp_stream_t 構造体 */
 	struct plist *plist;            /* plist 構造体へのポインタ */
-	struct iphdr *iphdr;            /* IP ヘッダのポインタ */
+	struct ip *ip;            /* IP ヘッダのポインタ */
         struct udphdr *udphdr;          /* UDP ヘッダのポインタ */
 	int    direction;               /* 処理上 0 or 1 で packet の送信方向を特定する */ 
 };
@@ -213,7 +222,6 @@ struct snoop_pheader {
 	uint32_t       drops;		/* cumulative drops */
 	struct timeval pktime;	        /* packet arrival time */
 }; 
-//struct snoop_pheader *php; /* 処理用の snoop packet header 構造体 */
 
 /*
  * 各 packet 処理用の配列
@@ -353,14 +361,13 @@ get_plist(){
 
 /* ip, tcp ヘッダの内容を確認し、connection 毎のグループを作る*/
 int
-check_tcp_header(struct iphdr *iphdr, struct tcphdr *tcphdr, struct plist *plist)
+check_tcp_header(struct ip *ip, struct tcphdr *tcphdr, struct plist *plist)
 {
     int i;
     struct connection_t *conn;
     struct stream_t *streams;
 
     conn = conn_head;
-
     /*
      * IP address  と TCP port の組み合わせから、既存の connection list の有無を確かめる
      */
@@ -369,19 +376,19 @@ check_tcp_header(struct iphdr *iphdr, struct tcphdr *tcphdr, struct plist *plist
          * fragment offset が 0 以外（fragmentしている) IP data gram を判定。
          * 最初の fragment は TCP ヘッダが付いているので、ここを通過する必要は無い
          */
-        if (ntohs(iphdr->ip_off) & (8191)){
+        if (ntohs(ip->ip_off) & (8191)){
             if (
-                (strncmp( (char *) &(iphdr->ip_src[0]), (char *) &(conn->addr0[0]), 4) == 0 &&
-                 strncmp( (char *) &(iphdr->ip_dst[0]), (char *) &(conn->addr1[0]), 4) == 0) ||
-                (strncmp( (char *) &(iphdr->ip_src[0]), (char *) &(conn->addr1[0]), 4) == 0 &&
-                 strncmp( (char *) &(iphdr->ip_dst[0]), (char *) &(conn->addr0[0]), 4) == 0)
+                ntohl(ip->ip_src.s_addr) == conn->addr0.s_addr &&
+                ntohl(ip->ip_dst.s_addr) == conn->addr1.s_addr ||
+                ntohl(ip->ip_src.s_addr) == conn->addr1.s_addr &&
+                ntohl(ip->ip_dst.s_addr) == conn->addr0.s_addr
                 ){
 
                 for (streams = conn->stream ; streams != NULL ; streams = streams->stream_next){
                     /*
                      * 同じ IPID をもつ packet を探す
                      */
-                    if( ntohs(iphdr->ip_id) == ntohs(streams->iphdr->ip_id)){
+                    if( ntohs(ip->ip_id) == ntohs(streams->ip->ip_id)){
                         /*
                          * TCP ヘッダーを 見つかった fragment の最初の packet の TCP ヘッダーとする
                          */
@@ -393,27 +400,27 @@ check_tcp_header(struct iphdr *iphdr, struct tcphdr *tcphdr, struct plist *plist
         }
         
         
-        if ( !(strncmp( (char *)&(iphdr->ip_src[0]), (char *)&(conn->addr0[0]), 4)) && (ntohs(tcphdr->th_sport) == conn->port0) ){
-            if  ( !(strncmp( (char *)&(iphdr->ip_dst[0]), (char *)&(conn->addr1[0]), 4)) && (ntohs(tcphdr->th_dport) == conn->port1) ){
+        if (ntohl(ip->ip_src.s_addr) != conn->addr0.s_addr && (ntohs(tcphdr->th_sport) == conn->port0) ){
+            if  ( ntohl(ip->ip_dst.s_addr) != conn->addr1.s_addr && (ntohs(tcphdr->th_dport) == conn->port1) ){
                 streams = malloc(sizeof(struct stream_t)); 
                 conn->stream_last->stream_next = streams;
                 conn->stream_last = streams;
                 streams->stream_next = NULL;
                 streams->plist = plist; 
-                streams->iphdr = iphdr; 
+                streams->ip = ip; 
                 streams->tcphdr = tcphdr;
                 streams->direction = 0; /* source と addr0 の ip が 同じなので direction は 0 */
                 conn->conn_count++;
                 return(0);
             }
-        } else if ( !(strncmp( (char *)&(iphdr->ip_src[0]), (char *)&(conn->addr1[0]), 4)) && (ntohs(tcphdr->th_sport) == conn->port1) ){
-            if  ( !(strncmp( (char *)&(iphdr->ip_dst[0]), (char *)&(conn->addr0[0]), 4)) && (ntohs(tcphdr->th_dport) == conn->port0) ){
+        } else if (ntohl(ip->ip_src.s_addr) != conn->addr1.s_addr && (ntohs(tcphdr->th_sport) == conn->port1) ){
+            if  (ntohl(ip->ip_dst.s_addr) != conn->addr0.s_addr && (ntohs(tcphdr->th_dport) == conn->port0) ){
                 streams = malloc(sizeof(struct stream_t)); 
                 conn->stream_last->stream_next = streams;
                 conn->stream_last = streams;
                 streams->stream_next = NULL;
                 streams->plist = plist; 
-                streams->iphdr = iphdr; 
+                streams->ip = ip; 
                 streams->tcphdr = tcphdr;
                 streams->direction = 1; /* 上の逆 */
                 conn->conn_count++;
@@ -431,10 +438,8 @@ check_tcp_header(struct iphdr *iphdr, struct tcphdr *tcphdr, struct plist *plist
     /* リストに既存の connection が無いので新規にリストに追加 */
     conn_write = malloc(sizeof(struct connection_t));
     conn_current->conn_next = conn_write;
-    for( i = 0 ; i < 4 ; i++){
-        conn_write->addr0[i] = iphdr->ip_src[i];
-        conn_write->addr1[i] = iphdr->ip_dst[i];
-    }
+    conn_write->addr0.s_addr = ntohl(ip->ip_src.s_addr);
+    conn_write->addr1.s_addr = ntohl(ip->ip_dst.s_addr);
     conn_write->conn_head = conn_head;
     conn_write->port0 = ntohs(tcphdr->th_sport);
     conn_write->port1 = ntohs(tcphdr->th_dport);
@@ -447,7 +452,7 @@ check_tcp_header(struct iphdr *iphdr, struct tcphdr *tcphdr, struct plist *plist
     conn_write->stream->stream_first = conn_write->stream;
     conn_write->stream->stream_next = NULL;
     conn_write->stream->plist = plist; 
-    conn_write->stream->iphdr = iphdr; 
+    conn_write->stream->ip = ip; 
     conn_write->stream->tcphdr = tcphdr;
     conn_write->stream->direction = 0; /* 最初に packet を送信してきた方向を 0 とする*/
     conn_current = conn_write;
@@ -456,7 +461,7 @@ check_tcp_header(struct iphdr *iphdr, struct tcphdr *tcphdr, struct plist *plist
 }
 
 /* ip, udp ヘッダの内容を確認し、udp session 毎のグループを作る*/
-int check_udp_header(struct iphdr *iphdr, struct udphdr *udphdr, struct plist *plist){
+int check_udp_header(struct ip *ip, struct udphdr *udphdr, struct plist *plist){
     int i;
     struct udp_port_pair_t *pair;
     struct udp_stream_t *udp_streams;
@@ -469,18 +474,18 @@ int check_udp_header(struct iphdr *iphdr, struct udphdr *udphdr, struct plist *p
 
         /* fragment offset が 0 以外（fragmentしている) IP data gram を判定*/
         /* 最初の fragment は UDP ヘッダが付いているので、ここを通過する必要は無い*/
-        if (ntohs(iphdr->ip_off) & (8191)){
+        if (ntohs(ip->ip_off) & (8191)){
             
             if (
-                (strncmp( (char *)&(iphdr->ip_src[0]), (char *)&(pair->addr0[0]), 4) == 0 &&
-                       strncmp( (char *)&(iphdr->ip_dst[0]), (char *)&(pair->addr1[0]), 4) == 0) ||
-                (strncmp( (char *)&(iphdr->ip_src[0]), (char *)&(pair->addr1[0]), 4) == 0 &&
-                       strncmp( (char *)&(iphdr->ip_dst[0]), (char *)&(pair->addr0[0]), 4) == 0)
+                ntohl(ip->ip_src.s_addr) == pair->addr0.s_addr &&
+                ntohl(ip->ip_dst.s_addr) == pair->addr1.s_addr ||
+                ntohl(ip->ip_src.s_addr) == pair->addr1.s_addr &&
+                ntohl(ip->ip_dst.s_addr) == pair->addr0.s_addr
                 ){
 
                 for (udp_streams = pair->udp_stream ; udp_streams != NULL ; udp_streams = udp_streams->udp_stream_next){
                         /* 同じ IPID をもつ packet を探す*/
-                    if(ntohs(iphdr->ip_id) == ntohs(udp_streams->iphdr->ip_id)){
+                    if(ntohs(ip->ip_id) == ntohs(udp_streams->ip->ip_id)){
                             /* UDP ヘッダーを 見つかった fragment の最初の packet の UDP ヘッダーとする*/
                         udphdr = udp_streams->udphdr;
                         break;
@@ -489,27 +494,27 @@ int check_udp_header(struct iphdr *iphdr, struct udphdr *udphdr, struct plist *p
             }
         }
         
-        if ( !(strncmp( (char *)&(iphdr->ip_src[0]), (char *)&(pair->addr0[0]), 4)) && (ntohs(udphdr->uh_sport) == pair->port0) ){
-            if  ( !(strncmp( (char *)&(iphdr->ip_dst[0]), (char *)&(pair->addr1[0]), 4)) && (ntohs(udphdr->uh_dport) == pair->port1) ){
+        if ( ntohl(ip->ip_src.s_addr) != pair->addr0.s_addr && (ntohs(udphdr->uh_sport) == pair->port0) ){
+            if  ( ntohl(ip->ip_dst.s_addr) != pair->addr1.s_addr && (ntohs(udphdr->uh_dport) == pair->port1) ){
                 udp_streams = malloc(sizeof(struct udp_stream_t)); 
                 pair->udp_stream_last->udp_stream_next = udp_streams;
                 pair->udp_stream_last = udp_streams;
                 udp_streams->udp_stream_next = NULL;
                 udp_streams->plist = plist; 
-                udp_streams->iphdr = iphdr; 
+                udp_streams->ip = ip; 
                 udp_streams->udphdr = udphdr;
                 udp_streams->direction = 0; /* source と addr0 の ip が 同じなので direction は 0 */
                 pair->pair_count++;
                 return(0);
             }
-        } else if ( !(strncmp( (char *)&(iphdr->ip_src[0]), (char *)&(pair->addr1[0]), 4)) && (ntohs(udphdr->uh_sport) == pair->port1) ){
-            if  ( !(strncmp( (char *)&(iphdr->ip_dst[0]), (char *)&(pair->addr0[0]), 4)) && (ntohs(udphdr->uh_dport) == pair->port0) ){
+        } else if (ntohl(ip->ip_src.s_addr) != pair->addr1.s_addr && (ntohs(udphdr->uh_sport) == pair->port1) ){
+            if  (ntohl(ip->ip_dst.s_addr) != pair->addr0.s_addr && ntohs(udphdr->uh_dport) == pair->port0){
                 udp_streams = malloc(sizeof(struct udp_stream_t)); 
                 pair->udp_stream_last->udp_stream_next = udp_streams;
                 pair->udp_stream_last = udp_streams;
                 udp_streams->udp_stream_next = NULL;
                 udp_streams->plist = plist; 
-                udp_streams->iphdr = iphdr; 
+                udp_streams->ip = ip; 
                 udp_streams->udphdr = udphdr;
                 udp_streams->direction = 1; /* 上の逆 */
                 pair->pair_count++;
@@ -527,10 +532,8 @@ int check_udp_header(struct iphdr *iphdr, struct udphdr *udphdr, struct plist *p
 	/* リストに既存の udp port pair が無いので新規にリストに追加 */
     pair_write = malloc(sizeof(struct udp_port_pair_t));
     pair_current->pair_next = pair_write;
-    for( i = 0 ; i < 4 ; i++){
-        pair_write->addr0[i] = iphdr->ip_src[i];
-        pair_write->addr1[i] = iphdr->ip_dst[i];
-    }
+    pair_write->addr0.s_addr = ntohl(ip->ip_src.s_addr);    
+    pair_write->addr1.s_addr = ntohl(ip->ip_dst.s_addr);
     pair_write->pair_head = pair_head;
     (pair_write->port0) = ntohs(udphdr->uh_sport);
     (pair_write->port1) = ntohs(udphdr->uh_dport);
@@ -541,7 +544,7 @@ int check_udp_header(struct iphdr *iphdr, struct udphdr *udphdr, struct plist *p
     pair_write->udp_stream->udp_stream_first = pair_write->udp_stream;
     pair_write->udp_stream->udp_stream_next = NULL;
     pair_write->udp_stream->plist = plist; 
-    pair_write->udp_stream->iphdr = iphdr; 
+    pair_write->udp_stream->ip = ip; 
     pair_write->udp_stream->udphdr = udphdr;
     pair_write->udp_stream->direction = 0; /* 最初に packet を送信してきた方向を 0 とする*/
     pair_current = pair_write;
@@ -556,11 +559,12 @@ int check_udp_header(struct iphdr *iphdr, struct udphdr *udphdr, struct plist *p
 int
 read_packet()
 {
-    int i;
+    int i,j;
     struct     in_addr insaddr, indaddr;
     struct     dgram *dgram;
     struct     tcphdr *tcphdr;
     struct     udphdr *udphdr;
+    char *p;
 
     conn_current = malloc(sizeof(struct connection_t));
     conn_head = conn_current;
@@ -571,9 +575,15 @@ read_packet()
     plist_current = plist_head;
     for ( i = 1 ; i < count + 1 ; i++){
         dgram = (struct dgram *)plist_current->cap_datap;
+        
         /* ether type 0x800=IP だけ読む */
         if( check_ethertype(ntohs(dgram->ether.ether_type)) ){
 
+            p = (char *)&(dgram->ip);
+            for (j = 0 ; j < 20 ; j++){
+                printf("%x ", p[j]);
+            }
+            
             /* TCP の packet だけ読む */
             if( dgram->ip.ip_p == IPPROTO_TCP){
                 if(debug){ /* debug 用 */ 
@@ -585,25 +595,26 @@ read_packet()
                     printf("protocol    : %d\n",dgram->ip.ip_p);
                     printf("id          : %d\n",ntohs(dgram->ip.ip_id));
                     printf("check       : %x\n",ntohs(dgram->ip.ip_sum));
-                    printf("saddr       : %d.%d.%d.%d\n",dgram->ip.ip_src[0],dgram->ip.ip_src[1],
-                           dgram->ip.ip_src[2],dgram->ip.ip_src[3]);
-                    printf("daddr       : %d.%d.%d.%d\n",dgram->ip.ip_dst[0],dgram->ip.ip_dst[1],
-                           dgram->ip.ip_dst[2],dgram->ip.ip_dst[3]);
+                    printf("saddr       : %d.%d.%d.%d\n",dgram->ip.ip_src._S_un._S_un_b.s_b1,dgram->ip.ip_src._S_un._S_un_b.s_b2,
+                           dgram->ip.ip_src._S_un._S_un_b.s_b3,dgram->ip.ip_src._S_un._S_un_b.s_b4);
+                    printf("daddr       : %d.%d.%d.%d\n",dgram->ip.ip_dst._S_un._S_un_b.s_b1,dgram->ip.ip_dst._S_un._S_un_b.s_b2,
+                           dgram->ip.ip_dst._S_un._S_un_b.s_b3,dgram->ip.ip_dst._S_un._S_un_b.s_b4);
                 }
 			
                 /* tcp ヘッダのアドレスを計算。IP ヘッダのアドレスに ip_hl x 4 byte を足す */ 	
                 tcphdr = (struct tcphdr *)((char *)&(dgram->ip) + ((dgram->ip.ip_hl)<<2) );
-
                 check_tcp_header(&(dgram->ip),tcphdr,plist_current);	
-            }/* if proto == TCP */
+            }/* if proto == TCP */ 
+            else {
+                printf("Not IP Packet ip_p = 0x%x\n", dgram->ip.ip_p);
+            }
+            printf("src = %s\n", inet_ntoa(dgram->ip.ip_src.s_addr));
             
             /* UDP の packet だけ読む */
             if( dgram->ip.ip_p == IPPROTO_UDP){
                 /* UDP ヘッダのアドレスを計算。IP ヘッダのアドレスに ip_hl x 4 byte を足す */ 	
                 udphdr = (struct udphdr *)((char *)&(dgram->ip) + ((dgram->ip.ip_hl)<<2) );
-
                 check_udp_header(&(dgram->ip),udphdr,plist_current);	
-                            
             }/* if proto == UDP */
 
         } /* if ethertype == ethernet */
@@ -627,10 +638,10 @@ read_conn_list()
     printf("        Connection List              \n");
     for(; conn != NULL ; conn = conn->conn_next ){
         printf("====================================\n");
-        printf("addr 0: %d.%d.%d.%d : Port: %hu\n",conn->addr0[0],conn->addr0[1],conn->addr0[2],
-               conn->addr0[3],conn->port0);	
-        printf("addr 1: %d.%d.%d.%d : Port: %hu\n",conn->addr1[0],conn->addr1[1],conn->addr1[2],
-               conn->addr1[3],conn->port1);
+        printf("addr 0: %d.%d.%d.%d : Port: %hu\n",conn->addr0._S_un._S_un_b.s_b1,conn->addr0._S_un._S_un_b.s_b2,
+               conn->addr0._S_un._S_un_b.s_b3, conn->addr0._S_un._S_un_b.s_b4,conn->port0);	
+        printf("addr 1: %d.%d.%d.%d : Port: %hu\n",conn->addr1._S_un._S_un_b.s_b1,conn->addr1._S_un._S_un_b.s_b2
+               ,conn->addr1._S_un._S_un_b.s_b3, conn->addr1._S_un._S_un_b.s_b4,conn->port1);
         printf("Number of packets  : %d\n", conn->conn_count);
     }
 
@@ -648,10 +659,10 @@ int read_pair_list(){
 	printf("        UPD port pair List              \n");
 	for(; pair != NULL ; pair = pair->pair_next ){
 		printf("====================================\n");
-		printf("addr 0: %d.%d.%d.%d : Port: %d\n",pair->addr0[0],pair->addr0[1],pair->addr0[2],
-                       pair->addr0[3],pair->port0);	
-		printf("addr 1: %d.%d.%d.%d : Port: %d\n",pair->addr1[0],pair->addr1[1],pair->addr1[2],
-                       pair->addr1[3],pair->port1);
+		printf("addr 0: %d.%d.%d.%d : Port: %d\n",pair->addr0._S_un._S_un_b.s_b1,pair->addr0._S_un._S_un_b.s_b2,
+                       pair->addr0._S_un._S_un_b.s_b3, pair->addr0._S_un._S_un_b.s_b4, pair->port0);	
+		printf("addr 1: %d.%d.%d.%d : Port: %d\n",pair->addr1._S_un._S_un_b.s_b1,pair->addr1._S_un._S_un_b.s_b2,
+                       pair->addr1._S_un._S_un_b.s_b2, pair->addr1._S_un._S_un_b.s_b1,pair->port1);
 		printf("Number of packets  : %d\n", pair->pair_count);
 	}
 
@@ -695,15 +706,20 @@ mkbin()
         printf("\n====================================\n");
         printf("Number of packets  : %d\n\n", conn->conn_count);
         printf("Addr 0: %d.%d.%d.%d : Port: %d\n",
-               conn->addr0[0],conn->addr0[1],conn->addr0[2],conn->addr0[3],conn->port0);
+               conn->addr0._S_un._S_un_b.s_b1,conn->addr0._S_un._S_un_b.s_b2,
+               conn->addr0._S_un._S_un_b.s_b3,conn->addr0._S_un._S_un_b.s_b4,conn->port0);
         printf("Addr 1: %d.%d.%d.%d : Port: %d\n",
-               conn->addr1[0],conn->addr1[1],conn->addr1[2],conn->addr1[3],conn->port1);
+               conn->addr1._S_un._S_un_b.s_b1,conn->addr1._S_un._S_un_b.s_b2,conn->addr1._S_un._S_un_b.s_b3,conn->addr1._S_un._S_un_b.s_b4,
+               conn->port1);
         /* file 名をセット*/
-        sprintf(file0,"%d.%d.%d.%d.%d-%d.%d.%d.%d.%d",conn->addr0[0],conn->addr0[1],conn->addr0[2],conn->addr0[3],
-                conn->port0,conn->addr1[0],conn->addr1[1],conn->addr1[2],conn->addr1[3],conn->port1);
-        sprintf(file1,"%d.%d.%d.%d.%d-%d.%d.%d.%d.%d",conn->addr1[0],conn->addr1[1],conn->addr1[2],conn->addr1[3],
-                conn->port1,conn->addr0[0],conn->addr0[1],conn->addr0[2],conn->addr0[3],conn->port0);	
-
+        sprintf(file0,"%d.%d.%d.%d.%d-%d.%d.%d.%d.%d",conn->addr0._S_un._S_un_b.s_b1,conn->addr0._S_un._S_un_b.s_b2,
+                conn->addr0._S_un._S_un_b.s_b3,conn->addr0._S_un._S_un_b.s_b4,
+                conn->port0,conn->addr1._S_un._S_un_b.s_b1,conn->addr1._S_un._S_un_b.s_b2,
+                conn->addr1._S_un._S_un_b.s_b3,conn->addr1._S_un._S_un_b.s_b4,conn->port1);
+        sprintf(file1,"%d.%d.%d.%d.%d-%d.%d.%d.%d.%d",conn->addr1._S_un._S_un_b.s_b1,conn->addr1._S_un._S_un_b.s_b2,
+                conn->addr1._S_un._S_un_b.s_b3,conn->addr1._S_un._S_un_b.s_b4,
+                conn->port1,conn->addr0._S_un._S_un_b.s_b1,conn->addr0._S_un._S_un_b.s_b2,
+                conn->addr0._S_un._S_un_b.s_b3,conn->addr0._S_un._S_un_b.s_b4,conn->port0);
         if (( fp0 = fopen(file0,"wb")) == NULL){
             perror("fopen");
         }
@@ -771,9 +787,11 @@ view_conn(int optflag)
     for( ; conn != NULL ; conn = conn->conn_next) {
         printf("\n====================================\n");
         printf("Number of packets  : %d\n\n", conn->conn_count);
-        printf("Addr 0: %d.%d.%d.%d : Port: %d",conn->addr0[0],conn->addr0[1],conn->addr0[2],conn->addr0[3],conn->port0);	
+        printf("Addr 0: %d.%d.%d.%d : Port: %d",conn->addr0._S_un._S_un_b.s_b1,conn->addr0._S_un._S_un_b.s_b2,
+               conn->addr0._S_un._S_un_b.s_b3,conn->addr0._S_un._S_un_b.s_b4,conn->port0);	
         printf("\t\t\t\t\t");
-        printf("Addr 1: %d.%d.%d.%d : Port: %d\n",conn->addr1[0],conn->addr1[1],conn->addr1[2],conn->addr1[3],conn->port1);
+        printf("Addr 1: %d.%d.%d.%d : Port: %d\n",conn->addr1._S_un._S_un_b.s_b1,conn->addr1._S_un._S_un_b.s_b2,
+               conn->addr1._S_un._S_un_b.s_b3,conn->addr1._S_un._S_un_b.s_b4,conn->port1);
         printf("---------------------------------------------------------------");
         printf("----------------------------------------------------------------\n");
         stream_init_time = TIMEVAL_TO_SEC(conn->stream->plist->php->pktime);
@@ -790,18 +808,18 @@ view_conn(int optflag)
              */
             printf("%d: ",streams->plist->packet_number);
             printf("%5.3f ",receive_time - previous_time);
-            if (ntohs(streams->iphdr->ip_off) & (8191)){
+            if (ntohs(streams->ip->ip_off) & (8191)){
                 /*
                  * fragment offset が 0 以外（fragmentしていて、TCP header が無い) IP data gram を判定
                  */
                 printf(" IP fragment");
-                printf(" IPID: %u",ntohs(streams->iphdr->ip_id));
+                printf(" IPID: %u",ntohs(streams->ip->ip_id));
                 printf(" Len:%4d", IPLEN(streams));                
-                printf(" Flag: 0x%x",ntohs(streams->iphdr->ip_off));
-                printf(" Offset: %u",((ntohs(streams->iphdr->ip_off)) & (8191))<<3);
-                if (ntohs(streams->iphdr->ip_off) & IP_MF)
+                printf(" Flag: 0x%x",ntohs(streams->ip->ip_off));
+                printf(" Offset: %u",((ntohs(streams->ip->ip_off)) & (8191))<<3);
+                if (ntohs(streams->ip->ip_off) & IP_MF)
                     printf(" MF");
-                if (ntohs(streams->iphdr->ip_off) & IP_DF)
+                if (ntohs(streams->ip->ip_off) & IP_DF)
                     printf(" DF");
                 printf("\n");
             } else {
@@ -813,9 +831,9 @@ view_conn(int optflag)
                 printf(" Win:%d", ntohs(streams->tcphdr->th_win));
                 printf(" Len:%u", TCPLEN(streams));
                 printf(" ");            
-                if (ntohs(streams->iphdr->ip_off) & IP_MF)
+                if (ntohs(streams->ip->ip_off) & IP_MF)
                     printf(" MF");
-                if (ntohs(streams->iphdr->ip_off) & IP_DF)
+                if (ntohs(streams->ip->ip_off) & IP_DF)
                     printf(" DF");                                            
                 printf(" ");
                 if(( *(streams->tcphdr->th_flags) | TH_FIN) == *(streams->tcphdr->th_flags))
@@ -845,7 +863,7 @@ view_conn(int optflag)
              * more fragmen が立っている packet は ack の調査をしない                            
              * なぜなら、fragment の途中では　TCP segment としての total length がわからないので
              */
-            if (ntohs(streams->iphdr->ip_off) & IP_MF){
+            if (ntohs(streams->ip->ip_off) & IP_MF){
                 //INDENT(streams);
                 //printf("\t> IP fragment packet.(can't check ack packet)\n");
                 continue;
@@ -959,7 +977,7 @@ view_conn(int optflag)
                         if (streams_check->direction != streams->direction) 
                             continue;
                         /* last fragment(IP_MF の立ってない)パケットのみをチェック */
-                        if (ntohs(streams_check->iphdr->ip_off) & IP_MF) 
+                        if (ntohs(streams_check->ip->ip_off) & IP_MF) 
                             continue;
 
                         /* データがあって、SEQ と SND_NXT が同じ packet を調べる*/	
@@ -1101,9 +1119,11 @@ int view_pair(int optflag){
     for( ; pair != NULL ; pair = pair->pair_next) {
         printf("\n====================================\n");
         printf("Number of packets  : %d\n\n", pair->pair_count);
-        printf("Addr 0: %d.%d.%d.%d : Port: %d",pair->addr0[0],pair->addr0[1],pair->addr0[2],pair->addr0[3],pair->port0);
+        printf("Addr 0: %d.%d.%d.%d : Port: %d",pair->addr0._S_un._S_un_b.s_b1,pair->addr0._S_un._S_un_b.s_b2
+               ,pair->addr0._S_un._S_un_b.s_b3,pair->addr0._S_un._S_un_b.s_b4,pair->port0);
         printf("\t\t\t\t\t");
-        printf("Addr 1: %d.%d.%d.%d : Port: %d\n",pair->addr1[0],pair->addr1[1],pair->addr1[2],pair->addr1[3],pair->port1);
+        printf("Addr 1: %d.%d.%d.%d : Port: %d\n",pair->addr1._S_un._S_un_b.s_b1,pair->addr1._S_un._S_un_b.s_b2,
+               pair->addr1._S_un._S_un_b.s_b3, pair->addr1._S_un._S_un_b.s_b4,pair->port1);
         printf("---------------------------------------------------------------");
         printf("----------------------------------------------------------------\n");
         udp_stream_init_time = TIMEVAL_TO_SEC(pair->udp_stream->plist->php->pktime);
@@ -1119,14 +1139,14 @@ int view_pair(int optflag){
                 /* 以下 summary 表示部 */
             printf("%d: ",udp_streams->plist->packet_number);
             printf("%5.3f ",receive_time - previous_time);
-            printf(" IPID: %u",ntohs(udp_streams->iphdr->ip_id));
+            printf(" IPID: %u",ntohs(udp_streams->ip->ip_id));
             printf(" Len:%4d", UDPLEN(udp_streams));
             printf("  ");
-            printf(" Flag: 0x%x",ntohs(udp_streams->iphdr->ip_off));
-            printf(" Offset: %u",((ntohs(udp_streams->iphdr->ip_off)) & (8191))<<3);
-            if (ntohs(udp_streams->iphdr->ip_off) & IP_MF)
+            printf(" Flag: 0x%x",ntohs(udp_streams->ip->ip_off));
+            printf(" Offset: %u",((ntohs(udp_streams->ip->ip_off)) & (8191))<<3);
+            if (ntohs(udp_streams->ip->ip_off) & IP_MF)
                 printf(" MF");
-            if (ntohs(udp_streams->iphdr->ip_off) & IP_DF)
+            if (ntohs(udp_streams->ip->ip_off) & IP_DF)
                 printf(" DF");                                
 
             previous_time = receive_time ;
