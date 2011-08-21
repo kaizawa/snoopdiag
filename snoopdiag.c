@@ -167,8 +167,8 @@ struct udp_stream_t{
  */
 struct snoop_fheader {
 	char name[8];
-	int version;
-	int mactype;
+	uint32_t version;
+	uint32_t mactype;
 } *fhp; 
 
 /*
@@ -179,7 +179,7 @@ struct snoop_pheader {
 	uint32_t       caplen;		/* length of packet captured into file */
 	uint32_t       reclen;		/* length of this packet record */
 	uint32_t       drops;		/* cumulative drops */
-	struct timeval pktime;	        /* packet arrival time */
+	struct timeval32 pktime;	        /* packet arrival time */
 }; 
 
 /*
