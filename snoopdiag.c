@@ -374,7 +374,7 @@ sn_open(char *file_name)
 		perror("mmap error");
 		return (-1);
 	}
-	printf("mmap size(for caputer file): %zd\n",st.st_size);        
+	printf("mmap size(for caputer file): %lld\n",st.st_size);        
 
 	buffp = p;
 
