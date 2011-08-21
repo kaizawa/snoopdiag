@@ -18,7 +18,7 @@ install:
 	-$(INSTALL) -m 0755 -o root -g bin snoopdiag /usr/local/bin
 
 uninstall:
-	-rm -rf /usr/local/bin/snoopdiag
+	-rm -f /usr/local/bin/snoopdiag
 
 reinstall: uninstall install
 

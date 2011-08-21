@@ -374,7 +374,7 @@ sn_open(char *file_name)
 		perror("mmap error");
 		return (-1);
 	}
-	printf("mmap size(for caputer file): %z\n",st.st_size);        
+	printf("mmap size(for caputer file): %zd\n",st.st_size);        
 
 	buffp = p;
 
@@ -436,7 +436,7 @@ get_plist(){
         struct snoop_pheader *php;
         struct plist *plist_current, *plist_write; /* 処理用の packet list 構造体 */        
         
-	printf("malloc size(for packet list): %z\n",sizeof(struct plist)*count);
+	printf("malloc size(for packet list): %zd\n",sizeof(struct plist)*count);
 
 	if( (plist_head = malloc( (sizeof(struct plist)*count) )) == NULL){
 		perror("malloc");
