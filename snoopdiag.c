@@ -225,7 +225,7 @@ main(int argc, char *argv[])
             exit(1);
 	}
 
-	while ((i = getopt (argc, argv, "Dludbv:")) != EOF) {
+	while ((i = getopt (argc, argv, "Dludbv")) != EOF) {
 		switch (i){
 			case 'l':
 				optflag |= LIST;	
@@ -374,7 +374,7 @@ sn_open(char *file_name)
 		perror("mmap error");
 		return (-1);
 	}
-	printf("mmap size(for caputer file): %zd\n",st.st_size);        
+	printf("mmap size(for caputer file): %lld\n",st.st_size);        
 
 	buffp = p;
 
