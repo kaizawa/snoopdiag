@@ -71,8 +71,8 @@
  * Linux doesn't hae 32bit timeval structure.
  */
 struct timeval32 {
-        time32_t        tv_sec;         /* seconds */
-        int32_t         tv_usec;        /* and microseconds */
+        int32_t         tv_sec;    /* seconds */
+        int32_t         tv_usec;   /* microseconds */
 };
 #endif
 
