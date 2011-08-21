@@ -52,6 +52,9 @@
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
 #include <arpa/inet.h>
+#ifdef SNOOPDIAG_LINUX
+#include <sys/types32.h>
+#endif
 
 #define	SNOOP_V2          2
 #define DL_ETHER        0x4     /* Ethernet Bus */
