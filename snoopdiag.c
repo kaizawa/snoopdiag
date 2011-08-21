@@ -225,7 +225,7 @@ main(int argc, char *argv[])
             exit(1);
 	}
 
-	while ((i = getopt (argc, argv, "Dludbv:")) != EOF) {
+	while ((i = getopt (argc, argv, "Dludbv")) != EOF) {
 		switch (i){
 			case 'l':
 				optflag |= LIST;	
