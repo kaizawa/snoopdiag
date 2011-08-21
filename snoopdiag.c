@@ -374,7 +374,7 @@ sn_open(char *file_name)
 		perror("mmap error");
 		return (-1);
 	}
-	printf("mmap size(for caputer file): %d\n",st.st_size);        
+	printf("mmap size(for caputer file): %z\n",st.st_size);        
 
 	buffp = p;
 
@@ -418,7 +418,7 @@ sn_count()
     while(data_size){
         if(optflag & VERBOSE) printf("Packet Len: %u Time: %f\n", ntohl(php->pktlen), TIMEVAL_TO_SEC(php->pktime) - initial_time);
         data_size -= ntohl(php->reclen);
-        php =  (struct snoop_pheader *)((unsigned int)php + ntohl(php->reclen));
+        php =  (struct snoop_pheader *)((unsigned char *)php + ntohl(php->reclen));
         count++;
     }
     printf("Done\n");
@@ -436,7 +436,7 @@ get_plist(){
         struct snoop_pheader *php;
         struct plist *plist_current, *plist_write; /* 処理用の packet list 構造体 */        
         
-	printf("malloc size(for packet list): %d\n",sizeof(struct plist)*count);
+	printf("malloc size(for packet list): %z\n",sizeof(struct plist)*count);
 
 	if( (plist_head = malloc( (sizeof(struct plist)*count) )) == NULL){
 		perror("malloc");
@@ -451,10 +451,10 @@ get_plist(){
 		plist_write->first = plist_head;
 		plist_write->php = php;
 		plist_write->packet_len = ntohl(php->pktlen); 
-		plist_write->cap_datap = (char *)((int)php + sizeof(struct snoop_pheader)); 
+		plist_write->cap_datap = (char *)((unsigned char *)php + sizeof(struct snoop_pheader)); 
 		plist_current = plist_write;
 		plist_current->nextpkt = ++plist_write;
-		php =  (struct snoop_pheader *)((int)php + ntohl(php->reclen));
+		php =  (struct snoop_pheader *)((unsigned char *)php + ntohl(php->reclen));
 	} 
 	plist_current->nextpkt = NULL; /* リストの最後の next pointer は NULL */
         printf("Done\n");
