@@ -1,18 +1,29 @@
-snoopdiag
+snoopdiag - Tools that diagnose tcp/udp packets captured using Solaris's snoop command.
 
-***************
-* Description *
-***************
-This is a tool that reads binary output of snoop(1M) command and display the 
-TCP packets for every TCP connections.Using with diagnosis option, it calculates 
-the expected ACK number from Sequence number, TCP data length and TCP flags. 
-And it diagnoses whether the ACK had returned and it calculate a time until the 
-packet has been acked. This tool free us from calculating the Sequence number by 
-hand.
+Copright (c) 2010  Kazuyoshi Aizawa <admin2@whiteboard.ne.jp> All rights reserved.
 
-***************
-* Usage       * 
-***************
+For the latest version and detail usage of snoopdiag, goto :
+
+https://github.com/kaizawa/snoopdiag/wiki
+
+******************
+* How to Compile *
+******************
+
+Run configure, make command on the directly where you extracted the archive file.
+
+$ configure  
+$ make
+
+If you have root permission, you can install binary to /usr/local/bin as below.
+
+$ make install
+
+Otherwise you can manually copy 'snoopdiag' binary anywhere you can access.
+
+******************
+* Usage          * 
+******************
 
 snoopdiag [ -ludvb ] filename
 
@@ -21,272 +32,5 @@ snoopdiag [ -ludvb ] filename
 -u : Display the summary of UDP packets for every UDP port pair.
 -d : Display diagnostic information of ACK.
 -b : Create TCP data file for each direction for every TCP connections.
-
-***************
-* Example 1   *
-***************
-Check TCP connections and UDP port pairs included with snoop output.
-
-$ snoopdiag -l snoop.output
-mmap size(for caputer file): 15084
-File Check OK.
-data size: 15068
-Counting numbers of the packets ....Done
-Number of Packets: 90
-malloc size(for packet list): 2160
-Listing each packets ...Done
-
-====================================
-Connection List 
-====================================
-addr 0: 192.168.1.57 : Port: 32873
-addr 1: 192.168.1.162 : Port: 139
-Number of packets : 56
-====================================
-addr 0: 192.168.1.57 : Port: 32874
-addr 1: 192.168.1.162 : Port: 139
-Number of packets : 24
-
-====================================
-UPD port pair List 
-====================================
-addr 0: 192.168.1.57 : Port: 138
-addr 1: 192.168.1.162 : Port: 138
-Number of packets : 6
-====================================
-addr 0: 192.168.1.57 : Port: 137
-addr 1: 192.168.1.162 : Port: 137
-Number of packets : 4
-
-***************
-* Example 2   *
-***************
-Display the summary of TCP packets included with snoop output.
-
-$ snoopdiag -v snnoop.out
-mmap size(for caputer file): 15084
-File Check OK.
-data size: 15068
-Counting numbers of the packets ....Done
-Number of Packets: 90
-malloc size(for packet list): 2160
-Listing each packets ...Done
-
-====================================
-        Check each connection                
-====================================
-
-====================================
-Number of packets  : 56
-
-Addr 0: 192.168.1.57 : Port: 32873                                     Addr 1: 192.168.1.162 : Port: 139
--------------------------------------------------------------------------------------------------------------------------------
-6: 0.000 680825544(0) Win:24820 Len:   0  DF SYN 
-                                                                7: 0.000 330361527(680825545) Win:8760 Len:   0  DF SYN ACK 
-8: 0.001 680825545(330361528) Win:24820 Len:   0  DF ACK 
-9: 0.000 680825545(330361528) Win:24820 Len:  72  DF PUSH ACK 
-                                                                10: 0.001 330361528(680825617) Win:8688 Len:   0  DF ACK 
-                                                                11: 0.006 330361528(680825617) Win:8760 Len:   4  DF PUSH ACK 
-12: 0.001 680825617(330361532) Win:24820 Len:   0  DF ACK 
-13: 0.004 680825617(330361532) Win:24820 Len: 116  DF PUSH ACK 
-                                                                14: 0.000 330361532(680825733) Win:8760 Len:   0  DF ACK 
-                                                                15: 0.003 330361532(680825733) Win:8760 Len:  98  DF PUSH ACK 
-16: 0.002 680825733(330361630) Win:24820 Len: 112  DF PUSH ACK 
-                                                                17: 0.095 330361630(680825845) Win:8760 Len:   0  DF ACK 
-                                                                18: 0.100 330361630(680825845) Win:8760 Len:  94  DF PUSH ACK 
- 
-The left-hand side of outputs show the packet from 192.168.1.57.
-And the right-hand side outputs show the packet from 192.168.1.162.
-In each line, you can see following information of the packet.
-
-exampleline output
-
- 13: 0.004 680825617(330361532) Win:24820 Len: 116  DF PUSH ACK
-
- "13"          : Packet number
- "0.000"       : The time since receiving the previous packet
- "680825617"   : SEQ number of this packet
- "(330361532)" : ACK number of this packet
- "Win:24820"   : Window size of this packet
- "Len: 116 "   : TCP data length of this packet
- "DF"          : IP fragment flag.(DF = Don't fragment, MF = More fragment)
- "PUSH ACK"    : TCP Flag (SYN,FIN,PUSH,RST,ACK)
-
-
-If the packet is a part of IP fragments tied in with IPID.
-The output will be shown like as below.
-13: 0.000 371428338(1882234631) Win:24820 Len: 468  MF PUSH ACK 
-14: 0.000  IP fragment IPID: 21659 Len: 488 Flag: 0x203d Offset: 488 MF
-15: 0.000  IP fragment IPID: 21659 Len: 488 Flag: 0x207a Offset: 976 MF
-16: 0.000  IP fragment IPID: 21659 Len:  16 Flag: 0xb7 Offset: 1464
-If "Offset" is non-zero, "Len" field reports the length of IP data exclude IP header.
-
-***************
-* Example 3   *
-***************
-Display diagnostic information of ACK
-
-$ snoopdiag -d snoop.log
-mmap size(for caputer file): 15084
-File Check OK.
-data size: 15068
-Counting numbers of the packets ....Done
-Number of Packets: 90
-malloc size(for packet list): 2160
-Listing each packets ...Done
-
-====================================
-        Check each connection                
-====================================
-
-====================================
-Number of packets  : 56
-
-Addr 0: 192.168.1.57 : Port: 32873                                     Addr 1: 192.168.1.162 : Port: 139
--------------------------------------------------------------------------------------------------------------------------------
-6: 0.000 680825544(0) Win:24820 Len:   0  DF SYN 
-        > expecting ACk = 680825545
-        > exactly acked by 7(0.000193 Sec)
-                                                                7: 0.000 330361527(680825545) Win:8760 Len:   0  DF SYN ACK 
-                                                                        > expecting ACk = 330361528
-                                                                        > exactly acked by 8(0.000663 Sec)
-8: 0.001 680825545(330361528) Win:24820 Len:   0  DF ACK 
-        > doesn't expect to be acked
-9: 0.000 680825545(330361528) Win:24820 Len:  72  DF PUSH ACK 
-        > expecting ACk = 680825617
-        > exactly acked by 10(0.000736 Sec)
-                                                                10: 0.001 330361528(680825617) Win:8688 Len:   0  DF ACK 
-                                                                        > doesn't expect to be acked
-                                                                11: 0.006 330361528(680825617) Win:8760 Len:   4  DF PUSH ACK 
-                                                                        > exactly acked by 12(0.000582 Sec)
-12: 0.001 680825617(330361532) Win:24820 Len:   0  DF ACK 
-        > doesn't expect to be acked
-13: 0.004 680825617(330361532) Win:24820 Len: 116  DF PUSH ACK 
-        > exactly acked by 14(0.000352 Sec)
-                                                                14: 0.000 330361532(680825733) Win:8760 Len:   0  DF ACK 
-                                                                        > doesn't expect to be acked
-                                                                15: 0.003 330361532(680825733) Win:8760 Len:  98  DF PUSH ACK 
-                                                                        > expecting ACk =  330361630 
-                                                                        > exactly acked by 16(0.001681 Sec)
-
-You will see the following diagnostic messages followed by each packets.
-
-> expecting ACk = 680825545
- This message shows that this packet is expecting to receive ACK# 680825545 from peer.
-
-> exactly acked by 14(0.000352 Sec)
- This message shows that the packet 14 has an ACK number that this packet is expecting to receive.
- And it shows that it took 0.000352 seconds until being acked.
-
-> acked by 35(0.02134 Sec)
- This message is a little different from previous one.
- This message shows that the packet 35 has greater ACK number that this packet is expecting to receive.
- So We can consider that this packet is acked by packet 35.
-
-> doesn't expect to be acked
-This message shows that this packet doesn't have TCP data and TCP Flags should be acked.
-
-> out of order packet. expected SEQ = 3788717572
- This message shows that this packet has greater ACK number than we are expecting to get next.
- It can be assumed that some packet might dropped somewhere in the network or the order of the
- packet has been changed.
- ### The packet might have been dropped during capture by snoop itself.
- ### Check drop count by "snoop -D -i snoop.log"
- ### If it reports that many packets were dropped by snoop command,
- ### checking sequence number with that snoop file might be meaningless....
-
-> SEQ = 1567754480 was already sent by pakcet 47
- This message shows expecting Sequence number to get after receiving this packet was already
- sent by packet 47.
- It is possible that this packet is retransmission packet that sender had already sent.
-
-> retransmission packet?
- This message shows that the packet has smaller ACK number than we are expecting to get next.
- Sender might retransmit the packet.
-
-> may retransmission packet of packet 45
- This message shows packet 45 has same Sequence number of this packet.
- Sender might retransmit the packet.
-
-> ...won't check ack packet. No more packets
- This messages shows this is a last packet of the TCP connection included with snoop file.
- So we can't check if this packet would be acked.
-
-***************
-* Example 4   *
-***************
-Display the summary of UDP packets for every UDP port pair.
-
-$ snoopdiag -u snoop.out
-mmap size(for caputer file): 12266120
-File Check OK.
-data size: 12266104
-Counting numbers of the packets ....Done
-Number of Packets: 8679
-malloc size(for packet list): 208296
-Listing each packets ...Done
-
-====================================
-        Check each UDP port pair                
-====================================
-
-====================================
-Number of packets  : 2563
-
-Addr 0: 192.168.152.22 : Port: 1023                                     Addr 1: 192.168.152.51 : Port: 2049
--------------------------------------------------------------------------------------------------------------------------------
-45: 0.000  IPID: 5876 Len: 120   Flag: 0x4000 Offset: 0 DF
-                                                                46: 0.000  IPID: 54928 Len: 116   Flag: 0x0 Offset: 0
-47: 0.011  IPID: 5877 Len: 120   Flag: 0x4000 Offset: 0 DF
-                                                                48: 0.000  IPID: 54929 Len: 116   Flag: 0x0 Offset: 0
-49: 0.006  IPID: 5878 Len: 112   Flag: 0x4000 Offset: 0 DF
-                                                                50: 0.000  IPID: 54930 Len: 112   Flag: 0x0 Offset: 0
-51: 0.000  IPID: 5879 Len: 112   Flag: 0x4000 Offset: 0 DF
-                                                                52: 0.000  IPID: 54931 Len: 112   Flag: 0x0 Offset: 0
-53: 0.000  IPID: 5880 Len: 116   Flag: 0x4000 Offset: 0 DF
-                                                                54: 0.000  IPID: 54932 Len: 120   Flag: 0x0 Offset: 0
-55: 0.017  IPID: 5881 Len: 124   Flag: 0x4000 Offset: 0 DF
-                                                                57: 0.001  IPID: 54933 Len:1472   Flag: 0x2000 Offset: 0 MF
-                                                                58: 0.000  IPID: 54933 Len:1480   Flag: 0x20b9 Offset: 1480 MF
-                                                                59: 0.000  IPID: 54933 Len:1480   Flag: 0x2172 Offset: 2960 MF
-                                                                61: 0.000  IPID: 54933 Len:1480   Flag: 0x222b Offset: 4440 MF
-                                                                63: 0.000  IPID: 54933 Len:1480   Flag: 0x22e4 Offset: 5920 MF
-                                                                65: 0.000  IPID: 54933 Len:1480   Flag: 0x239d Offset: 7400 MF
-                                                                67: 0.000  IPID: 54933 Len:1480   Flag: 0x2456 Offset: 8880 MF
-                                                                69: 0.000  IPID: 54933 Len:1480   Flag: 0x250f Offset: 10360 MF
-                                                                71: 0.000  IPID: 54933 Len:1480   Flag: 0x25c8 Offset: 11840 MF
-                                                                73: 0.000  IPID: 54933 Len:1480   Flag: 0x2681 Offset: 13320 MF
-                                                                75: 0.000  IPID: 54933 Len:1480   Flag: 0x273a Offset: 14800 MF
-                                                                77: 0.000  IPID: 54933 Len:1480   Flag: 0x27f3 Offset: 16280 MF
-                                                                78: 0.000  IPID: 54933 Len:1480   Flag: 0x28ac Offset: 17760 MF
-                                                                79: 0.000  IPID: 54933 Len:1480   Flag: 0x2965 Offset: 19240 MF
-                                                                80: 0.000  IPID: 54933 Len:1480   Flag: 0x2a1e Offset: 20720 MF
-                                                                82: 0.000  IPID: 54933 Len:1480   Flag: 0x2ad7 Offset: 22200 MF
-                                                                84: 0.000  IPID: 54933 Len:1480   Flag: 0x2b90 Offset: 23680 MF
-                                                                86: 0.000  IPID: 54933 Len:1480   Flag: 0x2c49 Offset: 25160 MF
-                                                                88: 0.000  IPID: 54933 Len:1480   Flag: 0x2d02 Offset: 26640 MF
-                                                                90: 0.000  IPID: 54933 Len:1480   Flag: 0x2dbb Offset: 28120 MF
-                                                                92: 0.000  IPID: 54933 Len:1480   Flag: 0x2e74 Offset: 29600 MF
-                                                                94: 0.000  IPID: 54933 Len:1480   Flag: 0x2f2d Offset: 31080 MF
-                                                                96: 0.000  IPID: 54933 Len: 344   Flag: 0xfe6 Offset: 32560
-103: 0.001  IPID: 5883 Len: 124   Flag: 0x4000 Offset: 0 DF
-
-
-The left-hand side of outputs show the packet from 192.168.152.22.
-And the right-hand side outputs show the packet from 192.168.152.51.
-In each line, you can see following information of the packet.
-========
-example line 55: 0.017  IPID: 5881 Len: 124   Flag: 0x4000 Offset: 0 DF
-
- "55"          : Packet number
- "0.017"       : The time since receiving the previous packet
- "IPID: 5881"  : IP ID of this packet
- "Len: 124 "   : UDP data length of this packet(This valule doesn't include udp header length)
- "Flag: 0x4000": IP fragment field of IP header in hex.
- "Offset: 0"   : IP fragment offset.
- "DF"          : IP fragment flag.(DF = Don't fragment, MF = More fragment)
-
-NOTE: If "Offset" is non-zero, it means that this packet doesn't have UDP header but it is a part
-of IP fragment packets tied in with IPID. In this case, "Len" field reports the IP lenght 
-exclude IP header.
+-D : print verbose output
 
