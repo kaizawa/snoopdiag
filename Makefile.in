@@ -15,7 +15,7 @@ snoopdiag: snoopdiag.c
 
 install:
 	-$(INSTALL) -d -m 0755 -o root -g bin /usr/local/bin
-	-$(INSTALL) -m 0755 -o root -g bin snopdiag /usr/local/bin
+	-$(INSTALL) -m 0755 -o root -g bin snoopdiag /usr/local/bin
 
 uninstall:
 	-rm -rf /usr/local/bin/snoopdiag
