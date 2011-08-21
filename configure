@@ -3195,13 +3195,13 @@ fi
 
 case $OSNAME in
      'Darwin')
-	CFLAGS=""
+	CFLAGS="-DSNOOPDIAG_DARWIN"
         ;;
      'Linux')
 	CFLAGS="-D_BSD_SOURCE -DSNOOPDIAG_LINUX"
         ;;
      'SunOS')
-        CFLAGS="-lsocket -lnsl"
+        CFLAGS="-lsocket -lnsl -DSNOOPDIAG_SUNOS"
         ;;
 esac
 

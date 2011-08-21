@@ -52,7 +52,7 @@
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
 #include <arpa/inet.h>
-#ifdef SNOOPDIAG_LINUX
+#ifdef SNOOPDIAG_SUNOS
 #include <sys/types32.h>
 #endif
 
@@ -65,6 +65,17 @@
 #define BIN   0x1<<3         /* make TCP data files */
 #define VIEWUDP   0x1<<4     /* view udp packet pair */
 #define VERBOSE   0x1<<5     /* Print verbose outputs */
+
+/*
+ * Linux doesn't hae 32bit timeval structure.
+ */
+#ifdef SNOOPDIAG_LINUX
+struct timeval32 {
+        time32_t        tv_sec;         /* seconds */
+        int32_t         tv_usec;        /* and microseconds */
+};
+#endif
+
 /*
  * Sequence number、Ack number を得るマクロ
  */
