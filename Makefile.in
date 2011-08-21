@@ -1,0 +1,30 @@
+CONFIGURE_FILES = Makefile config.status config.cache config.h config.log autom4te.cache
+
+CC = @CC@
+PRODUCTS = snoopdiag 
+
+CFLAGS = $(DEFS) @CFLAGS@ 
+LD_FLAGS = @LD_OPT@
+
+INSTALL = @INSTALL@
+
+all: $(PRODUCTS)
+
+snoopdiag: snoopdiag.c
+	$(CC) snoopdiag.c $(CFLAGS) -g -o snoopdiag
+
+install:
+	-$(INSTALL) -d -m 0755 -o root -g bin /usr/local/bin
+	-$(INSTALL) -m 0755 -o root -g bin snopdiag /usr/local/bin
+
+uninstall:
+	-rm -rf /usr/local/bin/snoopdiag
+
+reinstall: uninstall install
+
+clean:
+	-rm -f $(PRODUCTS) 
+
+distclean: 
+	-rm -f $(CONFIGURE_FILES)
+

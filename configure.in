@@ -1,0 +1,50 @@
+AC_INIT([IUMFS], [0.1.2], [admin2@whiteboard.ne.jp])
+AC_PROG_CC
+AC_PROG_CXX
+AC_PROG_INSTALL
+
+KARCH=`uname -p`
+OSNAME=`uname -s`
+
+
+IS_GNU_LD=`ld --version 2>&1 | grep  GNU`
+if test "$GCC" = yes; then
+	CFLAGS="$CFLAGS -Wall"
+	PTHREAD_CFLAGS="-pthreads"
+else
+	PTHREAD_CFLAGS="-mt"
+fi
+
+case $OSNAME in 
+     'Darwin')
+	CFLAGS=""
+        ;;
+     'Linux')
+	CFLAGS="-D_BSD_SOURCE"
+        ;;
+     'SunOS')
+        CFLAGS="-lsocket -lnsl"
+        ;;
+esac
+
+case $KARCH in
+     'sparc' | 'i386')
+	;;
+      'sparcv9')
+	;;
+      'amd64')
+	;;
+esac
+
+AC_ARG_ENABLE(debug,
+[  --enable-debug          Enable debuging],
+   AC_DEFINE(DEBUG, 1)
+)
+
+AC_SUBST(CFLAGS)
+AC_SUBST(CC)
+AC_SUBST(CXX)
+AC_SUBST(PTHREAD_CFLAGS)
+
+AC_CONFIG_FILES([Makefile])
+AC_OUTPUT
