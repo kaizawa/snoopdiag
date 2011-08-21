@@ -66,10 +66,10 @@
 #define VIEWUDP   0x1<<4     /* view udp packet pair */
 #define VERBOSE   0x1<<5     /* Print verbose outputs */
 
+#ifdef SNOOPDIAG_LINUX
 /*
  * Linux doesn't hae 32bit timeval structure.
  */
-#ifdef SNOOPDIAG_LINUX
 struct timeval32 {
         time32_t        tv_sec;         /* seconds */
         int32_t         tv_usec;        /* and microseconds */
